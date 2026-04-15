@@ -9,12 +9,13 @@
 #include "lpaTPGEngine.hpp"
 #include <dirent.h>
 #include <ctime>
+#include <iostream>
 
 int textseed = 0;
 
 std::vector<std::string> getSaveFiles() {
     std::vector<std::string> files;
-    DIR *dir = opendir(".");
+    DIR *dir = opendir("./worlds");
     if (!dir) return files;
     struct dirent *entry;
     while ((entry = readdir(dir)) != nullptr) {
@@ -110,6 +111,9 @@ namespace mycrap {
     int BLOCK_LOGS = registerID(5, "wooden_logs", lpa::Color(99, 89, 74));
     int BLOCK_SAND = registerID(6, "sand", lpa::Color(220, 230, 94));
     int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210));
+    int BLOCK_ORE = registerID(8, "diamond", lpa::Color(52, 183, 235));
+    int BLOCK_PURE_ORE = registerID(8, "refined_diamond", lpa::Color(52, 183, 235));
+    int BLOCK_SUPER_ORE = registerID(8, "super_diamond", lpa::Color(52, 183, 235));
     int BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
 }
 
@@ -181,6 +185,74 @@ bool addItem(ItemStack items) {
     if (next == -1) return false;
     inventory[next] = items;
     return true;
+}
+
+bool playerHas(const ItemStack& item) {
+    if (item.count <= 0) return false;
+    short itemid = inventorySearchID(item.type.numid);
+    if (itemid < 0) return false;
+    if (inventory[itemid].count < item.count) return false;
+    return true;
+}
+
+class Recipe {
+public:
+    std::vector<ItemStack> ingredients;
+    ItemStack creates;
+
+    bool canCraft() const {
+        for (int i = 0; i < ingredients.size(); i++) {
+            if (!playerHas(ingredients[i])) return false;
+        }
+        return true;
+    }
+
+    bool craft() {
+        if (!canCraft()) return false;
+
+        for (int i = 0; i < ingredients.size(); i++) {
+            short rmid = inventorySearchID(ingredients[i].type.numid);
+            inventory[rmid].decrement(ingredients[i].count);
+        }
+
+        addItem(creates);
+        return true;
+    }
+
+    Recipe(const std::vector<ItemStack>& i, const ItemStack& c)
+        : ingredients(i), creates(c) {}
+};
+
+std::vector<Recipe> recipies;
+
+int recipeSearchName(std::string name) {
+    for (int i = 0; i < recipies.size(); i++) {
+        if (recipies[i].creates.type.name == name)
+            return i;
+    }
+    return -1;
+}
+
+int recipeSearchID(int id) {
+    for (int i = 0; i < recipies.size(); i++) {
+        if (recipies[i].creates.type.numid == id)
+            return i;
+    }
+    return -1;
+}
+
+short registerRecipe(const std::vector<ItemStack>& i, const ItemStack& c) {
+    Recipe newrecipe(i, c);
+    recipies.push_back(newrecipe);
+    return newrecipe.creates.type.numid;
+}
+
+namespace mycrap {
+    short LEAVES_REC = registerRecipe({ ItemStack(mycrap::BLOCK_GRASS, 4) }, ItemStack(mycrap::BLOCK_LEAVES, 1));
+    short LOGS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LEAVES, 4) }, ItemStack(mycrap::BLOCK_LOGS, 1)); // dont ask, im not generating trees
+    short PLANKS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 1) }, ItemStack(mycrap::BLOCK_PLANKS, 8));
+    short GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 2) }, ItemStack(mycrap::BLOCK_GRASS, 1)); // how ba a a ad can i be? im just buildn the economy
+    short DIRT_DUPE = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 100) }, ItemStack(mycrap::BLOCK_DIRT, 101)); // how bad could i possible be? lets see
 }
 
 // this gives us 16 inventory entries to choose from
@@ -310,13 +382,31 @@ void saveToFile(const char *path) {
     FILE *f = fopen(path, "wb");
     if (!f) return;
     fwrite(chunk, sizeof(chunk), 1, f);
+    ssize_t invSize = inventory.size();
+    fwrite(&invSize, sizeof(invSize), 1, f);
+    for (auto &i : inventory) {
+        short id = i.type.numid;
+        int count = i.count;
+
+        fwrite(&id, sizeof(id), 1, f);
+        fwrite(&count, sizeof(count), 1, f);
+    }
     fclose(f);
 }
-
 void loadFromFile(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return;
     fread(chunk, sizeof(chunk), 1, f);
+    ssize_t invSize = 0;
+    fread(&invSize, sizeof(invSize), 1, f);
+    inventory.resize(invSize);
+    for (ssize_t i = 0; i < invSize; i++) {
+        short id;
+        int count;
+        fread(&id, sizeof(id), 1, f);
+        fread(&count, sizeof(count), 1, f);
+        inventory[i] = ItemStack(id, count);
+    }
     fclose(f);
     for (int wx = 0; wx < WORLD_X; wx++)
         for (int wz = 0; wz < WORLD_Z; wz++)
@@ -518,15 +608,12 @@ bool paused = false;
 void renderInventory(lpa::Window& win, lpa::Font& font) {
     const int slotSize = 25;
     const int spacing = 5;
-    const int invSize = 16;
-
-    //int totalWidth = invSize * slotSize + (invSize - 1) * spacing;
+    const int invSize = inventory.size() - 1;
     int startX = spacing;
     int startY = 600 - (slotSize + spacing);
     int y = startY;
         for (int i = 0; i < invSize; i++) {
             int x = startX + i * (slotSize + spacing);
-
             lpa::Color c = inventory[i].type.color;
             if (i == selected) {
                 win.drawRect(x-1, y-1, slotSize + 1,slotSize + 1, lpa::color::WHITE);
@@ -537,14 +624,52 @@ void renderInventory(lpa::Window& win, lpa::Font& font) {
         }
 }
 
-std::string TITLE = "MyCraps Alpha v1.2";
+void initWorld() {
+    for (int i = 0; i < inventory.size() - 1; i++) {
+        inventory[i] = ItemStack();
+    }
+}
+
+
+
+std::string VERSION = "Alpha v1.3";
+std::string TITLE = "MyCraps " + VERSION;
 
 bool selectthing = false;
+int w, h;
+bool consoleOpen = false;
+std::string consoleInput = "";
+std::vector<std::string> consoleLog;
+
+void handleCommand(const std::string& input) {
+    if (input.rfind("craft ", 0) == 0) {
+        std::string recipeName = input.substr(6);
+        int id = recipeSearchName(recipeName);
+        if (id < 0) return; // recipe not found
+        int i = 0;
+        while (recipies[id].craft()) {i++;}
+        consoleLog.push_back("Crafted " + std::to_string(i) + " " + recipeName + "(s).");
+        return;
+    }
+    if (input.rfind("give ", 0) == 0) {
+        std::string args = input.substr(5);
+        ssize_t space = args.find(' ');
+        if (space == std::string::npos) return;
+        std::string itemName = args.substr(0, space);
+        int count = std::stoi(args.substr(space + 1));
+        short id = inventorySearchName(itemName);
+        if (id < 0) return; // item not found
+        addItem(ItemStack(id, count));
+        return;
+    }
+}
 
 int main() {
     std::srand(static_cast<unsigned int>(time(0)));
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
-    lpa::Window win(TITLE.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600);
+    lpa::Window win(TITLE.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, true);
+    SDL_RenderSetLogicalSize(win.renderer, 800, 600);
+    //SDL_RenderSetIntegerScale(win.renderer, SDL_TRUE); dont uncomment this
     SDL_RenderSetLogicalSize(win.renderer, win.screenW, win.screenH);
     lpa::Font font("./ASSETS/OpenSans-Regular.ttf", 24);
     lpa::Font sfont("./ASSETS/OpenSans-Regular.ttf", 16);
@@ -571,6 +696,12 @@ int main() {
         while (menuRunning) {
             int mx, my;
             win.getMousePos(mx, my);
+            SDL_GetWindowSize(win.window, &w, &h);
+            float sx = 800.0f / w;
+            float sy = 600.0f / h;
+
+            mx = (int)(mx * sx);
+            my = (int)(my * sy);
             bool clicked = win.mousePressed(SDL_BUTTON_LEFT);
 
             SDL_Event me;
@@ -590,6 +721,7 @@ int main() {
                     win.drawText("Loading...", 10, 10, font, lpa::color::WHITE);
                     win.present();
                     generateWorld(std::rand());
+                    initWorld();
                     menuRunning = false;
                     SDL_Delay(150);
                 }
@@ -660,13 +792,57 @@ int main() {
                 if (e.type == SDL_QUIT) { appRunning = false; running = false; }
                 if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
                     paused = !paused;
-                    if (paused) win.unlockMouse();
-                    else        win.lockMouse();
+                    if (paused) {
+                        win.unlockMouse();
+                    } else {
+                        win.lockMouse();
+                    }
                     prevPauseLeft = true; // prevent immediate click-through
+                }
+                if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_TAB) {
+                    consoleOpen = true;
+                    paused = true;
+                }
+                if (consoleOpen && e.type == SDL_TEXTINPUT) {
+                    consoleInput += e.text.text;
+                }
+
+                if (consoleOpen && e.type == SDL_KEYDOWN) {
+
+                    if (e.key.keysym.sym == SDLK_BACKSPACE) {
+                        if (!consoleInput.empty())
+                            consoleInput.pop_back();
+                    }
+
+                    if (e.key.keysym.sym == SDLK_RETURN) {
+                        consoleLog.push_back("user@mycrap $ " + consoleInput);
+
+                        if (consoleInput == "clear") {
+                            consoleLog.clear();
+                        } else if (consoleInput == "close") {
+                            consoleOpen = false;
+                        } else {
+                            handleCommand(consoleInput);
+                        }
+
+                        consoleInput.clear();
+                    }
                 }
             }
 
             if (!paused) {
+                if (win.keyPressed(SDLK_TAB)) {
+                    static bool toggleLock = false;
+                    if (!toggleLock) {
+                        consoleOpen = !consoleOpen;
+                        if (consoleOpen) paused = true;
+                        toggleLock = true;
+                        if (consoleOpen) paused = true;
+                    }
+                } else {
+                    static bool toggleLock = false;
+                    toggleLock = false;
+                }
                 cam.yaw   -= mdx * sensitivity;
                 cam.pitch += mdy * sensitivity;
                 if (cam.pitch >  1.5f) cam.pitch =  1.5f;
@@ -739,20 +915,22 @@ int main() {
             if (selected > 16) selected = 0;
             std::string blockstr = inventory[selected].type.name;
 
-            win.drawText(fpsStr.c_str(), 10, 10,  font, lpa::color::BLACK);
-            win.drawText(("X: " + std::to_string(px)).c_str(), 10, 35, font, lpa::color::BLACK);
-            win.drawText(("Y: " + std::to_string(py)).c_str(), 10, 60, font, lpa::color::BLACK);
-            win.drawText(("Z: " + std::to_string(pz)).c_str(), 10, 85, font, lpa::color::BLACK);
+            win.drawText(fpsStr.c_str(), 10, 35,  font, lpa::color::BLACK);
+            win.drawText(("X: " + std::to_string(px)).c_str(), 10, 60, font, lpa::color::BLACK);
+            win.drawText(("Y: " + std::to_string(py)).c_str(), 10, 85, font, lpa::color::BLACK);
+            win.drawText(("Z: " + std::to_string(pz)).c_str(), 10, 110, font, lpa::color::BLACK);
 
-            win.drawText(("VY: " + std::to_string(velY)).c_str(), 10, 110, font, lpa::color::BLACK);
+            win.drawText(("VY: " + std::to_string(velY)).c_str(), 10, 135, font, lpa::color::BLACK);
             if (blockstr != "empty_block") win.drawText(blockstr.c_str(), 5, 530, font, lpa::color::BLACK);
-            win.drawText(seedStr.c_str(), 10, 135, font, lpa::color::BLACK);
+            win.drawText(seedStr.c_str(), 10, 160, font, lpa::color::BLACK);
+            win.drawText(VERSION.c_str(), 10, 10, font, lpa::color::BLACK);
 
             renderInventory(win, sfont);
 
             if (paused) {
-                for (int y = 0; y < 600; y++) {
-                    for (int x = 0; x < 800; x++) {
+                SDL_GetWindowSize(win.window, &w, &h);
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < x; x++) {
                         int idx = y * (win.pitch / 4) + x;
                         uint32_t p = win.pixels[idx];
 
@@ -771,13 +949,22 @@ int main() {
 
                 int mx, my;
                 win.getMousePos(mx, my);
+                SDL_GetWindowSize(win.window, &w, &h);
+                float sx = 800.0f / w;
+                float sy = 600.0f / h;
+
+                mx = (int)(mx * sx);
+                my = (int)(my * sy);
                 bool clicked = win.mousePressed(SDL_BUTTON_LEFT) && !prevPauseLeft;
 
                 bool hoverSave   = mx >= 250 && mx <= 550 && my >= 220 && my <= 270;
                 bool hoverMenu   = mx >= 250 && mx <= 550 && my >= 290 && my <= 340;
                 bool hoverResume = mx >= 250 && mx <= 550 && my >= 360 && my <= 410;
 
-                if (clicked && hoverSave)   { saveToFile("world.sav"); SDL_Delay(150); }
+                if (clicked && hoverSave) {
+                    saveToFile(consoleInput.c_str());
+                    SDL_Delay(150);
+                }
                 if (clicked && hoverMenu)   { running = false; SDL_Delay(1500); }
                 if (clicked && hoverResume) { paused = false; win.lockMouse(); SDL_Delay(150); }
 
@@ -790,7 +977,21 @@ int main() {
             } else {
                 prevPauseLeft = false;
             }
+            if (consoleOpen) {
+                win.fillRect(0, 0, 800, 250, lpa::Color(0, 0, 0));
 
+                int y = 10;
+
+                // draw log (last ~10 lines)
+                for (int i = (int)consoleLog.size() - 10; i < (int)consoleLog.size(); i++) {
+                    if (i < 0) continue;
+                    win.drawText(consoleLog[i].c_str(), 10, y, font, lpa::color::WHITE);
+                    y += 20;
+                }
+
+                // input line
+                win.drawText(("> " + consoleInput + "_").c_str(), 10, 220, font, lpa::color::WHITE);
+            }
             win.present();
         }
     }

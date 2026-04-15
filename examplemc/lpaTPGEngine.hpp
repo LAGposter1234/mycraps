@@ -232,12 +232,12 @@ namespace lpa {
 
         Window() : window(nullptr), renderer(nullptr), pixelBuffer(nullptr), pixels(nullptr), pitch(0), zbuffer(nullptr) {}
 
-        Window(const char *title, int x, int y, int w, int h)
+        Window(const char *title, int x, int y, int w, int h, bool full)
             : window(nullptr), renderer(nullptr), pixelBuffer(nullptr), pixels(nullptr), pitch(0), zbuffer(nullptr) {
             screenW = w; screenH = h;
             SDL_Init(SDL_INIT_EVERYTHING);
             TTF_Init();
-            window   = SDL_CreateWindow(title, x, y, w, h, SDL_WINDOW_SHOWN);
+            window   = SDL_CreateWindow(title, x, y, w, h, SDL_WINDOW_RESIZABLE);
             renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
             pixelBuffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
                                             SDL_TEXTUREACCESS_STREAMING, w, h);
