@@ -11,6 +11,16 @@ The binary name can be anything
 
 # CHANGELOG
 
+## Alpha 1.3 "My-Craft update"
+Added a terminal, updated some features.
+Commands:
+1. clear
+2. close
+3. craft
+4. give
+
+more info later
+
 ## Alpha 1.2 "The inventory update"
 Added a GUI inventory, with 16 slots
 
