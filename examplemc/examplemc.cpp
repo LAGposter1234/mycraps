@@ -60,27 +60,45 @@ int BLOCK_COUNT = 0;
 
 class BlockID {
 public:
-    int numid; // Numerical ID, used internally
+    short numid; // Numerical ID, used internally
     std::string name; // String ID, used for commands and high level internals
     lpa::Color color; // Colour, used for rendering
-    BlockID() : numid(0), name("INVALID") {}
+    BlockID() : numid(-32768), name("empty_block"), color(lpa::Color(0,0,0)) {}
     BlockID(int num, std::string nm, lpa::Color col) : numid(num), name(nm), color(col) {}
-    bool isBlock() {
+    const bool isBlock() {
         return numid >= 0;
     }
 };
 
 std::vector<BlockID> blocks;
 
-int registerID(int num, std::string nm, lpa::Color color) {
+int searchForBlockID(int id) {
+    for (int i = 0; i < blocks.size(); i++) {
+        if (blocks[i].numid == id)
+            return i;
+    }
+    return -1;
+}
+
+int registerID(short num, std::string nm, lpa::Color color) {
     BlockID newblock(num, nm, color);
     blocks.push_back(newblock);
     BLOCK_COUNT++;
-    return blocks[num].numid;
+    return num;
 }
 
 lpa::Color blockColor(int type) {
-    return blocks[type].color;
+    int idx = searchForBlockID(type);
+    if (idx != -1) return blocks[idx].color;
+    return lpa::Color(0,0,0);
+}
+
+int searchForBlockName(const std::string name) {
+    for (int i = 0; i < blocks.size(); i++) {
+        if (blocks[i].name == name)
+            return i;
+    }
+    return -1;
 }
 
 namespace mycrap {
@@ -92,11 +110,12 @@ namespace mycrap {
     int BLOCK_LOGS = registerID(5, "wooden_logs", lpa::Color(99, 89, 74));
     int BLOCK_SAND = registerID(6, "sand", lpa::Color(220, 230, 94));
     int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210));
+    int BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
 }
 
-uint8_t selected = mycrap::BLOCK_GRASS;
+uint8_t selected = 0;
 
-uint8_t chunk[WORLD_X][WORLD_Z][CX][CZ][CY] = {};
+short chunk[WORLD_X][WORLD_Z][CX][CZ][CY] = {};
 lpa::Model3D chunkMesh[WORLD_X][WORLD_Z];
 bool chunkDirty[WORLD_X][WORLD_Z];
 
@@ -106,17 +125,71 @@ bool onGround = false;
 // player                   feet
 float px, py, pz;
 
-// this gives us 16 block types to choose from
-void getSelected(lpa::Window& win) {
-    if (win.keyPressed(SDLK_b)) {
-        selected = 0;
-        if (win.keyPressed(SDLK_1)) selected += 1;
-        if (win.keyPressed(SDLK_2)) selected += 2;
-        if (win.keyPressed(SDLK_3)) selected += 4;
-        if (win.keyPressed(SDLK_4)) selected += 8;
-
-        if (selected > BLOCK_COUNT) selected = 0;
+// player                   inventory
+class ItemStack {
+public:
+    BlockID type;
+    bool increment(int amt) {
+        count += amt;
+        return true;
     }
+    bool decrement(int amt) {
+        if ((count - amt) < 0) return false;
+        if ((count - amt) == 0) {
+            count = 0;
+            type = BlockID();
+            return true;
+        }
+        count -= amt;
+        return true;
+    }
+    ItemStack() : type(), count(0) {}
+    ItemStack(short id, int count) : count(count) {
+        int idx = searchForBlockID(id);
+        if (idx != -1) type = blocks[idx];
+        else type = BlockID(); // fallback
+    }
+    short count;
+};
+
+std::vector<ItemStack> inventory(16);
+
+int inventorySearchName(std::string name) {
+    for (int i = 0; i < inventory.size(); i++) {
+        if (inventory[i].type.name == name)
+            return i;
+    }
+    return -1;
+}
+
+int inventorySearchID(int id) {
+    for (int i = 0; i < inventory.size(); i++) {
+        if (inventory[i].type.numid == id)
+            return i;
+    }
+    return -1;
+}
+
+bool addItem(ItemStack items) {
+    if (items.count < 1) return false;
+    short itemexists = inventorySearchName(items.type.name);
+    if (itemexists != -1) {
+        inventory[itemexists].increment(items.count);
+        return true;
+    }
+    short next = inventorySearchName("empty_block");
+    if (next == -1) return false;
+    inventory[next] = items;
+    return true;
+}
+
+// this gives us 16 inventory entries to choose from
+void getSelected(lpa::Window& win) {
+    if (win.keyPressed(SDLK_e)) selected++;
+    if (win.keyPressed(SDLK_q)) selected--;
+
+    if (selected > 15) selected = 0;
+    if (selected < 0) selected = 15;
 }
 
 void generateWorld(int seed) {
@@ -442,13 +515,39 @@ bool raycast(lpa::Camera &cam, float maxDist,
 
 bool paused = false;
 
-std::string TITLE = "MyCraps Alpha v1.1";
+void renderInventory(lpa::Window& win, lpa::Font& font) {
+    const int slotSize = 25;
+    const int spacing = 5;
+    const int invSize = 16;
+
+    //int totalWidth = invSize * slotSize + (invSize - 1) * spacing;
+    int startX = spacing;
+    int startY = 600 - (slotSize + spacing);
+    int y = startY;
+        for (int i = 0; i < invSize; i++) {
+            int x = startX + i * (slotSize + spacing);
+
+            lpa::Color c = inventory[i].type.color;
+            if (i == selected) {
+                win.drawRect(x-1, y-1, slotSize + 1,slotSize + 1, lpa::color::WHITE);
+            }
+            win.fillRect(x, y, slotSize, slotSize, c);
+            const char* text = std::to_string(inventory[i].count).c_str();
+            win.drawText(text, x, y, font, lpa::color::bright::GREY);
+        }
+}
+
+std::string TITLE = "MyCraps Alpha v1.2";
+
+bool selectthing = false;
 
 int main() {
     std::srand(static_cast<unsigned int>(time(0)));
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
     lpa::Window win(TITLE.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600);
+    SDL_RenderSetLogicalSize(win.renderer, win.screenW, win.screenH);
     lpa::Font font("./ASSETS/OpenSans-Regular.ttf", 24);
+    lpa::Font sfont("./ASSETS/OpenSans-Regular.ttf", 16);
     if (!font.font) printf("Font failed to load: %s\n", TTF_GetError());
     IMG_Init(IMG_INIT_PNG);
 
@@ -583,7 +682,12 @@ int main() {
                     py = 16; pz = CZ * WORLD_Z / 2.0f;
                     velY = 0;
                 }
-                getSelected(win);
+                if ((win.keyPressed(SDLK_e) || win.keyPressed(SDLK_q)) && selectthing) {
+                    getSelected(win);
+                    selectthing = false;
+                } else if (!(win.keyPressed(SDLK_e) || win.keyPressed(SDLK_q))) {
+                    selectthing = true;
+                }
 
                 float mlen = sqrt(mx*mx + mz*mz);
                 if (mlen > 0) { mx /= mlen; mz /= mlen; }
@@ -605,10 +709,18 @@ int main() {
                 bool rightDown = win.mousePressed(SDL_BUTTON_RIGHT);
 
                 if (hit) {
-                    if (leftDown && !prevLeft)
+                    if (leftDown && !prevLeft) {
+                        int block = getBlock(hitX, hitY, hitZ);
                         setBlock(hitX, hitY, hitZ, 0);
-                    if (rightDown && !prevRight)
-                        setBlock(hitX + normX, hitY + normY, hitZ + normZ, selected);
+                        ItemStack item(block, 1);
+                        addItem(item);
+                    }
+                    if (rightDown && !prevRight) {
+                        if (inventory[selected].type.numid != mycrap::BLOCK_EMPTY) {
+                            setBlock(hitX + normX, hitY + normY, hitZ + normZ, inventory[selected].type.numid);
+                            inventory[selected].decrement(1);
+                        }
+                    }
                 }
 
                 prevLeft  = leftDown;
@@ -624,16 +736,8 @@ int main() {
 
             std::string fpsStr = "FPS: " + std::to_string((int)(1.0f / dt));
             std::string seedStr = "Seed: " + std::to_string(textseed);
-
-            std::string blockstr = "Block: ";
-            if (selected == mycrap::BLOCK_GRASS) blockstr += "Grass";
-            if (selected == mycrap::BLOCK_DIRT) blockstr += "Dirt";
-            if (selected == mycrap::BLOCK_STONE) blockstr += "Stone";
-            if (selected == mycrap::BLOCK_PLANKS) blockstr += "Planks";
-            if (selected == mycrap::BLOCK_LOGS) blockstr += "Logs";
-            if (selected == mycrap::BLOCK_SAND) blockstr += "Sand";
-            if (selected == mycrap::BLOCK_LEAVES) blockstr += "Leaves";
-            if (selected == 0) blockstr += "Air (unknown)";
+            if (selected > 16) selected = 0;
+            std::string blockstr = inventory[selected].type.name;
 
             win.drawText(fpsStr.c_str(), 10, 10,  font, lpa::color::BLACK);
             win.drawText(("X: " + std::to_string(px)).c_str(), 10, 35, font, lpa::color::BLACK);
@@ -641,21 +745,29 @@ int main() {
             win.drawText(("Z: " + std::to_string(pz)).c_str(), 10, 85, font, lpa::color::BLACK);
 
             win.drawText(("VY: " + std::to_string(velY)).c_str(), 10, 110, font, lpa::color::BLACK);
-            win.drawText(blockstr.c_str(), 10, 135, font, lpa::color::BLACK);
-            win.drawText(seedStr.c_str(), 10, 160, font, lpa::color::BLACK);
+            if (blockstr != "empty_block") win.drawText(blockstr.c_str(), 5, 530, font, lpa::color::BLACK);
+            win.drawText(seedStr.c_str(), 10, 135, font, lpa::color::BLACK);
+
+            renderInventory(win, sfont);
 
             if (paused) {
-                // dim overlay
                 for (int y = 0; y < 600; y++) {
                     for (int x = 0; x < 800; x++) {
                         int idx = y * (win.pitch / 4) + x;
                         uint32_t p = win.pixels[idx];
+
                         uint8_t r = ((p >> 24) & 0xFF) / 2;
                         uint8_t g = ((p >> 16) & 0xFF) / 2;
                         uint8_t b = ((p >>  8) & 0xFF) / 2;
-                        win.pixels[idx] = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | 0xFF;
+
+                        win.pixels[idx] =
+                            ((uint32_t)r << 24) |
+                            ((uint32_t)g << 16) |
+                            ((uint32_t)b << 8) |
+                            0xFF;
                     }
                 }
+
 
                 int mx, my;
                 win.getMousePos(mx, my);
