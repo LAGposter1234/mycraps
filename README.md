@@ -11,5 +11,8 @@ The binary name can be anything
 
 # CHANGELOG
 
+## Alpha 1.2 "The inventory update"
+Added a GUI inventory, with 16 slots
+
 ## Alpha 1.1
 GitHub Release! Made blocks more dynamic, plans for build in MOD LOADER!!
