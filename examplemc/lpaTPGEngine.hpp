@@ -283,6 +283,25 @@ namespace lpa {
             for (int i = 0; i < count; i++) pixels[i] = col;
             for (int i = 0; i < screenW * screenH; i++) zbuffer[i] = 1e30f;
         }
+        void clearWithNoise(Color c = color::BLACK, int intense = 0, int r = 29384723) {
+            SDL_LockTexture(pixelBuffer, nullptr, (void**)&pixels, &pitch);
+            uint32_t col = packColor(c);
+            int count = (pitch / 4) * screenH;
+            for (int i = 0; i < count; i++) {
+                int r = c.r;
+                int g = c.g;
+                int b = c.b;
+                if (intense > 0) {
+                    int n = r % (intense * 2 + 1) - intense; // [-intense, +intense]
+
+                    r = std::clamp(r + n, 0, 255);
+                    g = std::clamp(g + n, 0, 255);
+                    b = std::clamp(b + n, 0, 255);
+                }
+                pixels[i] = packColor(Color(r, g, b));
+            }
+            for (int i = 0; i < screenW * screenH; i++) zbuffer[i] = 1e30f;
+        }
 
         void present() {
             SDL_UnlockTexture(pixelBuffer);

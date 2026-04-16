@@ -13,6 +13,16 @@ ___
 
 # CHANGELOG
 
+## Alpha 1.4.1 "Just Bug Fixes"
+
+Yeah, just bug fixes.
+
+Also potential bug fixes.
+
+And the crafting system uses recipe names instead of recipe results' name
+
+___
+
 ## Alpha 1.4 "Ores and more Ores"
 Added pickaxes
 
