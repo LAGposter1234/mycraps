@@ -33,7 +33,7 @@ std::vector<std::string> getSaveFiles() {
 
 #define CX 8
 #define CZ 8
-#define CY 96
+#define CY 128
 #define WORLD_X 96
 #define WORLD_Z 96
 
@@ -164,13 +164,13 @@ lpa::Image makePick(lpa::Color col) {
 
 namespace mycrap {
     int BLOCK_AIR = registerID(0, "air", lpa::Color(0, 0, 0));
-    int BLOCK_GRASS = registerID(1, "grass_block", lpa::Color(0, 125, 25), {0});
+    int BLOCK_GRASS = registerID(1, "grass_block", lpa::Color(0, 125, 25), {0, true, 1});
     int BLOCK_DIRT = registerID(2, "dirt_block", lpa::Color(33, 18, 1), {0});
     int BLOCK_STONE = registerID(3, "stone", lpa::Color(60, 60, 60), {1});
     int BLOCK_PLANKS = registerID(4, "wooden_planks", lpa::Color(217, 215, 163), {1});
     int BLOCK_LOGS = registerID(5, "wooden_logs", lpa::Color(99, 89, 74), {0});
-    int BLOCK_SAND = registerID(6, "sand", lpa::Color(220, 230, 94), {0});
-    int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210), {0});
+    int BLOCK_SAND = registerID(6, "sand", lpa::Color(162, 171, 51), {0});
+    int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210), {0, true, 5});
     int BLOCK_ORE = registerID(8, "diamond", lpa::Color(52, 183, 235), {2});
     int BLOCK_PURE_ORE = registerID(9, "refined_diamond", lpa::Color(100, 204, 245), {3});
     int BLOCK_SUPER_ORE = registerID(10, "super_diamond", lpa::Color(158, 222, 247), {4});
@@ -238,6 +238,7 @@ public:
 };
 
 std::vector<ItemStack> inventory(16);
+
 ItemStack miningItem;
 
 int inventorySearchName(std::string name) {
@@ -283,13 +284,34 @@ bool playerHas(const ItemStack& item) {
     return true;
 }
 
-void updateMiningItem(ItemStack& miningItem) {
-    if (playerHas(ItemStack(mycrap::ITEM_SUPERORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_SUPERORE_PICK, 1);}
-    if (playerHas(ItemStack(mycrap::ITEM_PUREORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_PUREORE_PICK, 1);}
-    if (playerHas(ItemStack(mycrap::ITEM_ORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_ORE_PICK, 1);}
+void removeAllOf(short id) {
+    int idx;
+    while ((idx = inventorySearchID(id)) != -1) {
+        inventory[idx] = ItemStack(); // clear slot
+    }
+}
 
-    if (playerHas(ItemStack(mycrap::ITEM_STONE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_STONE_PICK, 1);}
-    if (playerHas(ItemStack(mycrap::ITEM_WOOD_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_WOOD_PICK, 1);}
+void updateMiningItem(ItemStack& miningItem) {
+    if (playerHas(ItemStack(mycrap::ITEM_WOOD_PICK, 1))) {
+        miningItem = ItemStack(mycrap::ITEM_WOOD_PICK, 1);
+        removeAllOf(mycrap::ITEM_WOOD_PICK);
+    }
+    if (playerHas(ItemStack(mycrap::ITEM_STONE_PICK, 1))) {
+        miningItem = ItemStack(mycrap::ITEM_STONE_PICK, 1);
+        removeAllOf(mycrap::ITEM_STONE_PICK);
+    }
+    if (playerHas(ItemStack(mycrap::ITEM_ORE_PICK, 1))) {
+        miningItem = ItemStack(mycrap::ITEM_ORE_PICK, 1);
+        removeAllOf(mycrap::ITEM_ORE_PICK);
+    }
+    if (playerHas(ItemStack(mycrap::ITEM_PUREORE_PICK, 1))) {
+        miningItem = ItemStack(mycrap::ITEM_PUREORE_PICK, 1);
+        removeAllOf(mycrap::ITEM_PUREORE_PICK);
+    }
+    if (playerHas(ItemStack(mycrap::ITEM_SUPERORE_PICK, 1))) {
+        miningItem = ItemStack(mycrap::ITEM_SUPERORE_PICK, 1);
+        removeAllOf(mycrap::ITEM_SUPERORE_PICK);
+    }
 }
 
 class Recipe {
@@ -455,6 +477,22 @@ void generateWorld(int seed) {
                 float nx1 = n01 + u * (n11 - n01);
                 return nx0 + v * (nx1 - nx0);
             };
+
+            auto noise3D = [&](float fx, float fy, float fz, int seed) {
+                float xy = noise2D(fx, fy, seed);
+                float yz = noise2D(fy, fz, seed + 1);
+                float xz = noise2D(fx, fz, seed + 2);
+                float yx = noise2D(fy, fx, seed + 3);
+                float zy = noise2D(fz, fy, seed + 4);
+                float zx = noise2D(fz, fx, seed + 5);
+                return (xy + yz + xz + yx + zy + zx) / 6.0f;
+            };
+
+            auto caveNoise = [&](float x, float y, float z) {
+                float n = noise3D(x * 0.06f, y * 0.06f, z * 0.06f, seed);
+                return n;
+            };
+
             // Biomes
             float biomeNoise = noise2D(worldX * 0.01f, worldZ * 0.01f, seed);
 
@@ -463,7 +501,7 @@ void generateWorld(int seed) {
 
             if (biomeNoise < -0.5f) biome = BIOME_OCEAN;
             else if (biomeNoise < -0.2f) biome = BIOME_DESERT;
-            else if (biomeNoise > 0.7f) biome = BIOME_MOUNTAINS;
+            else if (biomeNoise > 0.3f) biome = BIOME_MOUNTAINS;
             else biome = BIOME_PLAINS;
             // ⛰️ Height
             float base = noise2D(worldX * 0.05f, worldZ * 0.05f, seed);
@@ -473,7 +511,7 @@ void generateWorld(int seed) {
             float heightF = 0;
 
             if (biome == BIOME_MOUNTAINS)
-                heightF = base * 1.7f + mountain * 1.5f;
+                heightF = base * 3.0f + mountain * 1.0f;
             else if (biome == BIOME_DESERT)
                 heightF = base * 0.3f;
             else if (biome == BIOME_OCEAN)
@@ -520,14 +558,26 @@ void generateWorld(int seed) {
                 else {
                     // deep underground
                     float chance = (float)(rand() % 10000);
-                    if (chance > 25) {
+                    if (chance > 50) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
-                    } else if (chance > 20) {
+                    } else if (chance > 35) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_ORE;
-                    } else if (chance > 10) {
+                    } else if (chance > 25) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_PURE_ORE;
-                    } else if (chance > 5) {
+                    } else if (chance > 10) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_SUPER_ORE;
+                    }
+                }
+
+                // === CAVE CARVING ===
+                if (y > 5 && y < CY - 5) {
+                    float n = caveNoise(worldX, (float)y, worldZ);
+
+                    // tweak threshold for more/less caves
+                    if (n > 0.5f) {
+                        if (chunk[wx][wz][x][z][y] != mycrap::BLOCK_AIR) {
+                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_AIR;
+                        }
                     }
                 }
             }
@@ -817,8 +867,8 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Alpha v1.4.3";
-std::string VNAME = "Compatability Update 2";
+std::string VERSION = "Beta v1.0";
+std::string VNAME = "Caverns and Mountains update";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
@@ -1161,6 +1211,19 @@ int main() {
             win.clearWithNoise(lpa::color::BLACK, 10, rand());
             win.drawSkybox(lpa::color::CYAN, lpa::color::CYAN, cam);
             renderWorld(win, cam, (int)px, (int)pz);
+
+            if (win.keyPressed(SDLK_f)) {
+                auto& item = inventory[selected];
+
+                if (item.type.metadata.size() > 2) {
+                    if (item.type.metadata[1]) { // is edible
+                        int heal = item.type.metadata[2];
+
+                        item.decrement(1);
+                        phealth += heal;
+                    }
+                }
+            }
 
             win.drawLine(395, 300, 405, 300, lpa::color::WHITE);
             win.drawLine(400, 295, 400, 305, lpa::color::WHITE);

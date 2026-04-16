@@ -12,8 +12,22 @@ The binary name can be anything
 ___
 
 # CHANGELOG
-
 ___
+
+# BETA
+___
+
+## Beta 1.0 "Caverns and Mountains update"
+ 
+Totally original. Bug fixes, caves, and mountains are bigger
+
+
+###
+___
+# ALPHA
+___
+
+
 
 ## Alpha 1.4.3 "Compatability Update 2"
 
