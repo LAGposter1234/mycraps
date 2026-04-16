@@ -13,6 +13,14 @@ ___
 
 # CHANGELOG
 
+___
+
+## Alpha 1.4.2 "Compatability Update"
+
+Hopefully windows users can enjoy this masterpeice now.
+
+___
+
 ## Alpha 1.4.1 "Just Bug Fixes"
 
 Yeah, just bug fixes.

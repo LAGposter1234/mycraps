@@ -7,7 +7,7 @@
 #include <string>
 #include <cmath>
 #include "lpaTPGEngine.hpp"
-#include <dirent.h>
+#include <filesystem>
 #include <ctime>
 #include <iostream>
 
@@ -15,15 +15,14 @@ int textseed = 0;
 
 std::vector<std::string> getSaveFiles() {
     std::vector<std::string> files;
-    DIR *dir = opendir("./worlds");
-    if (!dir) return files;
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        std::string name = entry->d_name;
-        if (name.size() > 4 && name.substr(name.size() - 4) == ".sav")
-            files.push_back(name);
+    std::filesystem::path dirPath = "./worlds";
+    if (!std::filesystem::exists(dirPath)) return files;
+    for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
+        if (!entry.is_regular_file()) continue;
+        if (entry.path().extension() == ".sav") {
+            files.push_back(entry.path().filename().string());
+        }
     }
-    closedir(dir);
     return files;
 }
 
@@ -813,8 +812,8 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Alpha v1.4.1";
-std::string VNAME = "Just Bug Fixes";
+std::string VERSION = "Alpha v1.4.2";
+std::string VNAME = "Compatability Update";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
