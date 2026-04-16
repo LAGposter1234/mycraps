@@ -64,10 +64,15 @@ public:
     short numid; // Numerical ID, used internally
     std::string name; // String ID, used for commands and high level internals
     lpa::Color color; // Colour, used for rendering
-    BlockID() : numid(-32768), name("empty_block"), color(lpa::Color(0,0,0)) {}
-    BlockID(int num, std::string nm, lpa::Color col) : numid(num), name(nm), color(col) {}
-    const bool isBlock() {
-        return numid >= 0;
+    lpa::Image img; // Used for rendering items
+
+    std::vector<short> metadata;
+    BlockID() : numid(-32768), name("empty_block"), color(lpa::Color(0,0,0)), metadata({}), img(lpa::Image()) {}
+    BlockID(int num, std::string nm, lpa::Color col) : numid(num), name(nm), color(col), metadata({}), img(lpa::Image()) {}
+    BlockID(int num, std::string nm, lpa::Image c, std::vector<short> mtdt) : numid(num), name(nm), img(c), metadata(mtdt) {}
+    BlockID(int num, std::string nm, lpa::Color col, std::vector<short> mtdt) : numid(num), name(nm), color(col), metadata(mtdt), img(lpa::Image()) {}
+    bool isBlock() const {
+        return numid <= 1000;
     }
 };
 
@@ -88,6 +93,20 @@ int registerID(short num, std::string nm, lpa::Color color) {
     return num;
 }
 
+int registerID(short num, std::string nm, lpa::Color color, std::vector<short> mtdt) {
+    BlockID newblock(num, nm, color, mtdt);
+    blocks.push_back(newblock);
+    BLOCK_COUNT++;
+    return num;
+}
+
+int registerID(short num, std::string nm, lpa::Image& cos, std::vector<short> mtdt) {
+    BlockID newblock(num, nm, cos, mtdt);
+    blocks.push_back(newblock);
+    BLOCK_COUNT++;
+    return num;
+}
+
 lpa::Color blockColor(int type) {
     int idx = searchForBlockID(type);
     if (idx != -1) return blocks[idx].color;
@@ -102,19 +121,75 @@ int searchForBlockName(const std::string name) {
     return -1;
 }
 
+SDL_Renderer* blockrenderer;
+
+lpa::Image makePick(lpa::Color col) {
+    lpa::Image img(25, 25);
+
+    lpa::Color empty(0, 0, 0, 0);
+
+    for (int y = 0; y < 25; y++) {
+        for (int x = 0; x < 25; x++) {
+
+            // handle (wood stick)
+            if (x >= 11 && x <= 13) {
+                img.at(x, y) = lpa::Color(139, 69, 19); // brown
+            }
+
+            // pick head (top left)
+            else if (
+                (y < 10 && x > 6 && x < 18) ||   // main head
+                (y < 6 && x > 8 && x < 16)       // top thickness
+            ) {
+                img.at(x, y) = col;
+            }
+
+            // inner cut (gives shape)
+            else if (y < 9 && x > 10 && x < 14) {
+                img.at(x, y) = empty;
+            }
+
+            else {
+                img.at(x, y) = empty;
+            }
+        }
+    }
+
+    return img;
+}
+
 namespace mycrap {
     int BLOCK_AIR = registerID(0, "air", lpa::Color(0, 0, 0));
-    int BLOCK_GRASS = registerID(1, "grass_block", lpa::Color(0, 125, 25));
-    int BLOCK_DIRT = registerID(2, "dirt_block", lpa::Color(33, 18, 1));
-    int BLOCK_STONE = registerID(3, "stone", lpa::Color(60, 60, 60));
-    int BLOCK_PLANKS = registerID(4, "wooden_planks", lpa::Color(217, 215, 163));
-    int BLOCK_LOGS = registerID(5, "wooden_logs", lpa::Color(99, 89, 74));
-    int BLOCK_SAND = registerID(6, "sand", lpa::Color(220, 230, 94));
-    int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210));
-    int BLOCK_ORE = registerID(8, "diamond", lpa::Color(52, 183, 235));
-    int BLOCK_PURE_ORE = registerID(8, "refined_diamond", lpa::Color(52, 183, 235));
-    int BLOCK_SUPER_ORE = registerID(8, "super_diamond", lpa::Color(52, 183, 235));
+    int BLOCK_GRASS = registerID(1, "grass_block", lpa::Color(0, 125, 25), {0});
+    int BLOCK_DIRT = registerID(2, "dirt_block", lpa::Color(33, 18, 1), {0});
+    int BLOCK_STONE = registerID(3, "stone", lpa::Color(60, 60, 60), {1});
+    int BLOCK_PLANKS = registerID(4, "wooden_planks", lpa::Color(217, 215, 163), {1});
+    int BLOCK_LOGS = registerID(5, "wooden_logs", lpa::Color(99, 89, 74), {0});
+    int BLOCK_SAND = registerID(6, "sand", lpa::Color(220, 230, 94), {0});
+    int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210), {0});
+    int BLOCK_ORE = registerID(8, "diamond", lpa::Color(52, 183, 235), {2});
+    int BLOCK_PURE_ORE = registerID(9, "refined_diamond", lpa::Color(100, 204, 245), {3});
+    int BLOCK_SUPER_ORE = registerID(10, "super_diamond", lpa::Color(158, 222, 247), {4});
     int BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
+    short ITEM_WOOD_PICK;
+    short ITEM_STONE_PICK;
+    short ITEM_ORE_PICK;
+    short ITEM_PUREORE_PICK;
+    short ITEM_SUPERORE_PICK;
+    short ITEM_FIST;
+    lpa::Image woodpickimg = makePick(lpa::Color(99, 89, 74));
+    lpa::Image stonepickimg = makePick(lpa::Color(60, 60, 60));
+    lpa::Image orepickimg = makePick(lpa::Color(52, 183, 235));
+    lpa::Image pureorepickimg = makePick(lpa::Color(100, 204, 245));
+    lpa::Image superorepickimg = makePick(lpa::Color(158, 222, 247));
+    void initItems(lpa::Window& win) {
+        ITEM_WOOD_PICK = registerID(1001, "wooden_pickaxe", woodpickimg, {1});
+        ITEM_STONE_PICK = registerID(1002, "stone_pickaxe", stonepickimg, {2});
+        ITEM_ORE_PICK = registerID(1003, "diamond_pickaxe", orepickimg, {3});
+        ITEM_PUREORE_PICK = registerID(1004, "refined_diamond_pickaxe", pureorepickimg, {4});
+        ITEM_SUPERORE_PICK = registerID(1005, "super_diamond_pickaxe", superorepickimg, {5});
+        ITEM_FIST = registerID(1006, "fist", woodpickimg, {0});
+    }
 }
 
 uint8_t selected = 0;
@@ -157,6 +232,7 @@ public:
 };
 
 std::vector<ItemStack> inventory(16);
+ItemStack miningItem;
 
 int inventorySearchName(std::string name) {
     for (int i = 0; i < inventory.size(); i++) {
@@ -176,15 +252,21 @@ int inventorySearchID(int id) {
 
 bool addItem(ItemStack items) {
     if (items.count < 1) return false;
-    short itemexists = inventorySearchName(items.type.name);
-    if (itemexists != -1) {
-        inventory[itemexists].increment(items.count);
+
+    int existing = inventorySearchID(items.type.numid);
+    if (existing != -1) {
+        inventory[existing].increment(items.count);
         return true;
     }
-    short next = inventorySearchName("empty_block");
-    if (next == -1) return false;
-    inventory[next] = items;
-    return true;
+
+    for (auto &slot : inventory) {
+        if (slot.count == 0) {
+            slot = items;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool playerHas(const ItemStack& item) {
@@ -195,10 +277,20 @@ bool playerHas(const ItemStack& item) {
     return true;
 }
 
+void updateMiningItem(ItemStack& miningItem) {
+    if (playerHas(ItemStack(mycrap::ITEM_SUPERORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_SUPERORE_PICK, 1);}
+    if (playerHas(ItemStack(mycrap::ITEM_PUREORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_PUREORE_PICK, 1);}
+    if (playerHas(ItemStack(mycrap::ITEM_ORE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_ORE_PICK, 1);}
+
+    if (playerHas(ItemStack(mycrap::ITEM_STONE_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_STONE_PICK, 1);}
+    if (playerHas(ItemStack(mycrap::ITEM_WOOD_PICK, 1))) {miningItem = ItemStack(mycrap::ITEM_WOOD_PICK, 1);}
+}
+
 class Recipe {
 public:
     std::vector<ItemStack> ingredients;
     ItemStack creates;
+    short id;
 
     bool canCraft() const {
         for (int i = 0; i < ingredients.size(); i++) {
@@ -207,7 +299,7 @@ public:
         return true;
     }
 
-    bool craft() {
+    bool craft(ItemStack& miningItem) {
         if (!canCraft()) return false;
 
         for (int i = 0; i < ingredients.size(); i++) {
@@ -216,11 +308,12 @@ public:
         }
 
         addItem(creates);
+        updateMiningItem(miningItem);
         return true;
     }
 
-    Recipe(const std::vector<ItemStack>& i, const ItemStack& c)
-        : ingredients(i), creates(c) {}
+    Recipe(const std::vector<ItemStack>& i, const ItemStack& c, short d)
+        : ingredients(i), creates(c), id(d) {}
 };
 
 std::vector<Recipe> recipies;
@@ -235,24 +328,70 @@ int recipeSearchName(std::string name) {
 
 int recipeSearchID(int id) {
     for (int i = 0; i < recipies.size(); i++) {
-        if (recipies[i].creates.type.numid == id)
+        if (recipies[i].id == id)
             return i;
     }
     return -1;
 }
 
-short registerRecipe(const std::vector<ItemStack>& i, const ItemStack& c) {
-    Recipe newrecipe(i, c);
+short registerRecipe(const std::vector<ItemStack>& i, const ItemStack& c, short id) {
+    Recipe newrecipe(i, c, id);
     recipies.push_back(newrecipe);
-    return newrecipe.creates.type.numid;
+    return newrecipe.id;
 }
 
 namespace mycrap {
-    short LEAVES_REC = registerRecipe({ ItemStack(mycrap::BLOCK_GRASS, 4) }, ItemStack(mycrap::BLOCK_LEAVES, 1));
-    short LOGS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LEAVES, 4) }, ItemStack(mycrap::BLOCK_LOGS, 1)); // dont ask, im not generating trees
-    short PLANKS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 1) }, ItemStack(mycrap::BLOCK_PLANKS, 8));
-    short GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 2) }, ItemStack(mycrap::BLOCK_GRASS, 1)); // how ba a a ad can i be? im just buildn the economy
-    short DIRT_DUPE = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 100) }, ItemStack(mycrap::BLOCK_DIRT, 101)); // how bad could i possible be? lets see
+    short LEAVES_REC;
+    short LOGS_REC;
+    short PLANKS_REC;
+    short GRASS_REC;
+    short DIRT_DUPE;
+    short OREPICK;
+    short PUREOREPICK;
+    short SUPEROREPICK;
+
+    short STONEPICK;
+    short WOODPICK;
+
+    void initRecipes() {
+        LEAVES_REC = registerRecipe({ ItemStack(mycrap::BLOCK_GRASS, 4) }, ItemStack(mycrap::BLOCK_LEAVES, 1), 1);
+        LOGS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LEAVES, 4) }, ItemStack(mycrap::BLOCK_LOGS, 1), 2); // dont ask, im not generating trees
+        PLANKS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 1) }, ItemStack(mycrap::BLOCK_PLANKS, 8), 3);
+        GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 2) }, ItemStack(mycrap::BLOCK_GRASS, 1), 4); // how ba a a ad can i be? im just buildn the economy
+        DIRT_DUPE = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 10) }, ItemStack(mycrap::BLOCK_DIRT, 11), 5); // how bad could i possible be? lets see
+        OREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_ORE_PICK, 1), 6);
+        PUREOREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_PURE_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_PUREORE_PICK, 1), 7);
+        SUPEROREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_SUPER_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_SUPERORE_PICK, 1), 8);
+
+        STONEPICK = registerRecipe({ ItemStack(mycrap::BLOCK_STONE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_STONE_PICK, 1), 9);
+        WOODPICK = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_WOOD_PICK, 1), 10);
+    }
+}
+
+std::string itemStackToString(const ItemStack& item) {
+    if (item.type.numid < 0 || item.count == 0)
+        return "empty";
+    return std::to_string(item.count) + "x " + item.type.name;
+}
+
+std::string recipeToString(const Recipe& r) {
+    std::string out;
+    for (int i = 0; i < r.ingredients.size(); i++) {
+        out += itemStackToString(r.ingredients[i]);
+        if (i < r.ingredients.size() - 1)
+            out += " + ";
+    }
+    out += " -> ";
+    out += itemStackToString(r.creates);
+    return out;
+}
+std::string recipeIDToString(short id) {
+    int idx = recipeSearchID(id);
+
+    if (idx == -1)
+        return "INVALID_RECIPE";
+
+    return recipeToString(recipies[idx]);
 }
 
 // this gives us 16 inventory entries to choose from
@@ -369,7 +508,16 @@ void generateWorld(int seed) {
 
                 else {
                     // deep underground
-                    chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
+                    float chance = (float)(rand() % 10000);
+                    if (chance > 25) {
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
+                    } else if (chance > 20) {
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_ORE;
+                    } else if (chance > 10) {
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_PURE_ORE;
+                    } else if (chance > 5) {
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_SUPER_ORE;
+                    }
                 }
             }
         }
@@ -377,6 +525,9 @@ void generateWorld(int seed) {
         chunkDirty[wx][wz] = true;
     }
 }
+
+
+float phealth = 100.0f;
 
 void saveToFile(const char *path) {
     FILE *f = fopen(path, "wb");
@@ -391,6 +542,7 @@ void saveToFile(const char *path) {
         fwrite(&id, sizeof(id), 1, f);
         fwrite(&count, sizeof(count), 1, f);
     }
+    fwrite(&phealth, sizeof(phealth), 1, f);
     fclose(f);
 }
 void loadFromFile(const char *path) {
@@ -407,6 +559,7 @@ void loadFromFile(const char *path) {
         fread(&count, sizeof(count), 1, f);
         inventory[i] = ItemStack(id, count);
     }
+    fread(&phealth, sizeof(phealth), 1, f);
     fclose(f);
     for (int wx = 0; wx < WORLD_X; wx++)
         for (int wz = 0; wz < WORLD_Z; wz++)
@@ -535,6 +688,8 @@ lpa::Vec2 getChunkPos(int px, int pz) {
     return lpa::Vec2((float)cx, (float)cz);
 }
 
+float timeSin;
+
 void renderWorld(lpa::Window &win, lpa::Camera &cam, int ppx, int ppz) {
     lpa::Vec2 cpos = getChunkPos(ppx, ppz);
     for (int wx = 0; wx < WORLD_X; wx++) {
@@ -548,6 +703,19 @@ void renderWorld(lpa::Window &win, lpa::Camera &cam, int ppx, int ppz) {
                 && wz >= cpos.y - 1 && wz <= cpos.y + 1)
                 rebuildChunk(wx, wz);
 
+            /*float t = timeSin; // -1 to 1
+
+            float angle = (t + 1.0f) * 3.14159f; // 0 → PI
+
+            float radius = 800.0f;
+
+            lpa::Vec3 lightPos(
+                384 + cos(angle) * radius,
+                300 + sin(angle) * radius,
+                384
+            );
+            lpa::Vec3 lights[] = {lightPos};*/
+            //win.drawPoint(lightPos.toVec2(cam, &false).x, lightPos.toVec2(cam, &false).y, lpa::color::YELLOW);
             chunkMesh[wx][wz].render(win, lpa::color::WHITE, cam);
         }
     }
@@ -622,17 +790,24 @@ void renderInventory(lpa::Window& win, lpa::Font& font) {
             const char* text = std::to_string(inventory[i].count).c_str();
             win.drawText(text, x, y, font, lpa::color::bright::GREY);
         }
+    int x = startX + (invSize + 1) * (slotSize + spacing);
+    win.drawRect(x, y, slotSize, slotSize, lpa::color::bright::GREY);
+    win.drawImage(miningItem.type.img, x, y);
+    const char* text = miningItem.type.name.c_str();
+    win.drawText(text, x + 30, y, font, lpa::color::bright::GREY);
 }
 
 void initWorld() {
     for (int i = 0; i < inventory.size() - 1; i++) {
         inventory[i] = ItemStack();
     }
+    phealth = 100.0f;
+    miningItem.type = blocks[searchForBlockID(mycrap::ITEM_FIST)];
+    miningItem.count = 1;
 }
 
-
-
-std::string VERSION = "Alpha v1.3";
+std::string VERSION = "Alpha v1.4";
+std::string VNAME = "Ores and more Ores";
 std::string TITLE = "MyCraps " + VERSION;
 
 bool selectthing = false;
@@ -647,7 +822,7 @@ void handleCommand(const std::string& input) {
         int id = recipeSearchName(recipeName);
         if (id < 0) return; // recipe not found
         int i = 0;
-        while (recipies[id].craft()) {i++;}
+        while (recipies[id].craft(miningItem)) {i++;}
         consoleLog.push_back("Crafted " + std::to_string(i) + " " + recipeName + "(s).");
         return;
     }
@@ -662,17 +837,55 @@ void handleCommand(const std::string& input) {
         addItem(ItemStack(id, count));
         return;
     }
+    if (input.rfind("saveto ", 0) == 0) {
+        std::string args = input.substr(7);
+        ssize_t space = args.find(' ');
+        if (space == std::string::npos) return;
+        std::string fileName = "worlds/" + args.substr(0, space);
+        saveToFile(fileName.c_str());
+        return;
+    }
+    if (input.rfind("help", 0) == 0) {
+        for (int i = 0; i < recipies.size(); i++) {
+            consoleLog.push_back(recipeIDToString(recipies[i].id));
+        }
+        return;
+    }
+    if (input.rfind("craftsingle ", 0) == 0) {
+        std::string recipeName = input.substr(6);
+        int id = recipeSearchName(recipeName);
+        if (id < 0) return; // recipe not found
+        int i = 0;
+        recipies[id].craft(miningItem);
+        consoleLog.push_back("Crafted " + recipeName + ".");
+        return;
+    }
 }
+
+void renderHealthBar(lpa::Window& win, lpa::Font& font) {
+    win.fillRect(5, 541, 100, 15, lpa::color::bright::GREY);
+    win.fillRect(5, 541, phealth, 15, lpa::color::RED);
+    std::string text = std::to_string(phealth) + "%";
+    win.drawText(text.c_str(), 5, 536, font, lpa::color::WHITE);
+}
+
+float time_timer = 0.0f;
 
 int main() {
     std::srand(static_cast<unsigned int>(time(0)));
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
     lpa::Window win(TITLE.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, true);
+    mycrap::initItems(win);
+    mycrap::initRecipes();
     SDL_RenderSetLogicalSize(win.renderer, 800, 600);
     //SDL_RenderSetIntegerScale(win.renderer, SDL_TRUE); dont uncomment this
     SDL_RenderSetLogicalSize(win.renderer, win.screenW, win.screenH);
-    lpa::Font font("./ASSETS/OpenSans-Regular.ttf", 24);
-    lpa::Font sfont("./ASSETS/OpenSans-Regular.ttf", 16);
+    SDL_Surface* surf = IMG_Load("ASSETS/menu_bg.png");
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(win.renderer, surf);
+    SDL_FreeSurface(surf);
+    lpa::Font font("./ASSETS/titlefont.ttf", 24);
+    lpa::Font sfont("./ASSETS/titlefont.ttf", 14);
+    lpa::Font tfont("./ASSETS/titlefont.ttf", 48);
     if (!font.font) printf("Font failed to load: %s\n", TTF_GetError());
     IMG_Init(IMG_INIT_PNG);
 
@@ -709,7 +922,7 @@ int main() {
                 if (me.type == SDL_QUIT) { IMG_Quit(); return 0; }
             }
 
-            win.clear(lpa::color::BLACK);
+            win.clear(lpa::Color(50, 55, 65));
 
             if (menuState == 0) {
                 bool hoverNew  = mx >= 250 && mx <= 550 && my >= 260 && my <= 310;
@@ -728,7 +941,11 @@ int main() {
                 if (clicked && hoverLoad) { saveFiles = getSaveFiles(); menuState = 1; SDL_Delay(150); }
                 if (clicked && hoverQuit) { IMG_Quit(); return 0; }
 
-                win.drawText(TITLE.c_str(), 220, 180, font, lpa::color::WHITE);
+                int w, h;
+                TTF_SizeText(tfont.font, TITLE.c_str(), &w, &h);
+
+                int x = (800 - w) / 2;
+                win.drawText(TITLE.c_str(), x, 100, tfont, lpa::color::WHITE);
                 drawButton("New World",  250, 260, 300, 50, hoverNew);
                 drawButton("Load World", 250, 330, 300, 50, hoverLoad);
                 drawButton("Quit",       250, 400, 300, 50, hoverQuit);
@@ -802,6 +1019,12 @@ int main() {
                 if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_TAB) {
                     consoleOpen = true;
                     paused = true;
+                    if (paused) {
+                        win.unlockMouse();
+                    } else {
+                        win.lockMouse();
+                    }
+                    prevPauseLeft = true; // prevent immediate click-through
                 }
                 if (consoleOpen && e.type == SDL_TEXTINPUT) {
                     consoleInput += e.text.text;
@@ -843,6 +1066,10 @@ int main() {
                     static bool toggleLock = false;
                     toggleLock = false;
                 }
+                time_timer += (dt / 100);
+                timeSin = sin(time_timer);
+
+
                 cam.yaw   -= mdx * sensitivity;
                 cam.pitch += mdy * sensitivity;
                 if (cam.pitch >  1.5f) cam.pitch =  1.5f;
@@ -876,6 +1103,15 @@ int main() {
 
                 movePlayer(mx * speed * dt, velY * dt, mz * speed * dt);
 
+                if (py > 500) phealth -= 0.1f;
+                if (py > 1000) phealth -= 0.9f;
+                if (phealth < 0) {
+                    px = CX * WORLD_X / 2.0f;
+                    py = 16; pz = CZ * WORLD_Z / 2.0f;
+                    velY = 0;
+                    phealth = 100.0f;
+                }
+
                 cam.x = px; cam.y = py + PLAYER_EYE; cam.z = pz;
 
                 int hitX, hitY, hitZ, normX, normY, normZ;
@@ -887,9 +1123,15 @@ int main() {
                 if (hit) {
                     if (leftDown && !prevLeft) {
                         int block = getBlock(hitX, hitY, hitZ);
-                        setBlock(hitX, hitY, hitZ, 0);
-                        ItemStack item(block, 1);
-                        addItem(item);
+                        int idx = searchForBlockID(block);
+                        if (idx != -1) {
+                            BlockID& def = blocks[idx];
+                            if (def.metadata[0] <= miningItem.type.metadata[0]) {
+                                setBlock(hitX, hitY, hitZ, 0);
+                                ItemStack item(block, 1);
+                                addItem(item);
+                            }
+                        }
                     }
                     if (rightDown && !prevRight) {
                         if (inventory[selected].type.numid != mycrap::BLOCK_EMPTY) {
@@ -921,11 +1163,13 @@ int main() {
             win.drawText(("Z: " + std::to_string(pz)).c_str(), 10, 110, font, lpa::color::BLACK);
 
             win.drawText(("VY: " + std::to_string(velY)).c_str(), 10, 135, font, lpa::color::BLACK);
-            if (blockstr != "empty_block") win.drawText(blockstr.c_str(), 5, 530, font, lpa::color::BLACK);
+            if (blockstr != "empty_block") win.drawText(blockstr.c_str(), 5, 510, font, lpa::color::BLACK);
             win.drawText(seedStr.c_str(), 10, 160, font, lpa::color::BLACK);
-            win.drawText(VERSION.c_str(), 10, 10, font, lpa::color::BLACK);
+            std::string vstr = VERSION + " - " + VNAME;
+            win.drawText(vstr.c_str(), 10, 10, font, lpa::color::BLACK);
 
             renderInventory(win, sfont);
+            renderHealthBar(win, sfont);
 
             if (paused) {
                 SDL_GetWindowSize(win.window, &w, &h);
@@ -978,19 +1222,19 @@ int main() {
                 prevPauseLeft = false;
             }
             if (consoleOpen) {
-                win.fillRect(0, 0, 800, 250, lpa::Color(0, 0, 0));
+                win.fillRect(0, 0, 800, 500, lpa::Color(0, 0, 0));
 
                 int y = 10;
 
-                // draw log (last ~10 lines)
-                for (int i = (int)consoleLog.size() - 10; i < (int)consoleLog.size(); i++) {
+                // draw log
+                for (int i = (int)consoleLog.size() - 24; i < (int)consoleLog.size(); i++) {
                     if (i < 0) continue;
-                    win.drawText(consoleLog[i].c_str(), 10, y, font, lpa::color::WHITE);
-                    y += 20;
+                    win.drawText(consoleLog[i].c_str(), 10, y, sfont, lpa::color::WHITE);
+                    y += 18;
                 }
 
                 // input line
-                win.drawText(("> " + consoleInput + "_").c_str(), 10, 220, font, lpa::color::WHITE);
+                win.drawText(("> " + consoleInput + "_").c_str(), 10, 460, font, lpa::color::WHITE);
             }
             win.present();
         }

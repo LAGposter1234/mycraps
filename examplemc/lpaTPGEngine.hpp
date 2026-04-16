@@ -188,6 +188,20 @@ namespace lpa {
         ~Costume() { SDL_DestroyTexture(texture); }
     };
 
+    class Image {
+    public:
+        int w, h;
+        std::vector<Color> data;
+
+        Image(int ww, int hh)
+            : w(ww), h(hh), data(ww * hh) {}
+        Image() : w(0), h(0), data() {}
+
+        Color& at(int x, int y) {
+            return data[y * w + x];
+        }
+    };
+
     class TileSet {
     public:
         std::vector<Costume> costumes;
@@ -571,6 +585,16 @@ namespace lpa {
             SDL_LockTexture(pixelBuffer, nullptr, (void**)&pixels, &pitch);
         }
 
+        void drawImage(Image &img, int x, int y) {
+            SDL_UnlockTexture(pixelBuffer);
+            for (int y_i = 0; y_i < img.h; y_i++) {
+                for (int x_i = 0; x_i < img.w; x_i++) {
+                    SDL_SetRenderDrawColor(renderer, img.data[x_i + (y_i * img.w)].r, img.data[x_i + (y_i * img.w)].g, img.data[x_i + (y_i * img.w)].b, 255);
+                    SDL_RenderDrawPoint(renderer, x, y);
+                }
+            }
+        }
+
         bool keyPressed(SDL_Keycode key) {
             const Uint8 *state = SDL_GetKeyboardState(NULL);
             return state[SDL_GetScancodeFromKey(key)];
@@ -710,19 +734,43 @@ namespace lpa {
                             (t.p1.y+t.p2.y+t.p3.y)/3.0f,
                             (t.p1.z+t.p2.z+t.p3.z)/3.0f);
                 Vec3 camDir(cam.x-center.x, cam.y-center.y, cam.z-center.z);
+
+                float len = sqrt(camDir.x*camDir.x + camDir.y*camDir.y + camDir.z*camDir.z);
+                if (len == 0) continue;
+
+                camDir.x /= len;
+                camDir.y /= len;
+                camDir.z /= len;
+
                 float facing = n.x*camDir.x + n.y*camDir.y + n.z*camDir.z;
                 if (facing <= 0) continue;
 
                 Vec3 lp = light ? *light : Vec3(cam.x, cam.y, cam.z);
                 Vec3 lightDir(lp.x-center.x, lp.y-center.y, lp.z-center.z);
-                float len = sqrt(lightDir.x*lightDir.x + lightDir.y*lightDir.y + lightDir.z*lightDir.z);
-                if (len == 0) continue;
-                lightDir.x /= len; lightDir.y /= len; lightDir.z /= len;
+                //Vec3 lightDir = normalize(*light);
+                float len2 = lightDir.x*lightDir.x + lightDir.y*lightDir.y + lightDir.z*lightDir.z;
+                if (len2 < 1e-8f) continue;
+
+                float inv = 1.0f / sqrt(len2);
+                lightDir.x *= inv;
+                lightDir.y *= inv;
+                lightDir.z *= inv;
 
                 float dot = n.x*lightDir.x + n.y*lightDir.y + n.z*lightDir.z;
                 if (dot < 0) dot = 0;
                 float bright = 0.1f + dot * 0.9f;
-                Color lit((uint8_t)(bc.r*bright), (uint8_t)(bc.g*bright), (uint8_t)(bc.b*bright), bc.a);
+                auto clamp8 = [](float v) -> uint8_t {
+                    if (v < 0) return 0;
+                    if (v > 255) return 255;
+                    return (uint8_t)v;
+                };
+
+                Color lit(
+                    clamp8(bc.r * bright),
+                    clamp8(bc.g * bright),
+                    clamp8(bc.b * bright),
+                    bc.a
+                );
                 win.fillTriangle3d(t, lit, cam);
             }
         }
