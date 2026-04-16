@@ -15,6 +15,12 @@ ___
 
 ___
 
+## Alpha 1.4.3 "Compatability Update 2"
+
+Hopefully windows users can enjoy this masterpeice ***NOW***
+
+___
+
 ## Alpha 1.4.2 "Compatability Update"
 
 Hopefully windows users can enjoy this masterpeice now.

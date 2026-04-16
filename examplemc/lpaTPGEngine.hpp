@@ -1,15 +1,21 @@
 #ifndef TPGENGINE_LPATPGENGINE_H
 #define TPGENGINE_LPATPGENGINE_H
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#ifdef _WIN32
+    #include <SDL.h>
+    #include <SDL_image.h>
+    #include <SDL_ttf.h>
+#else
+    #include <SDL2/SDL.h>
+    #include <SDL2/SDL_image.h>
+    #include <SDL2/SDL_ttf.h>
+#endif
 #include <vector>
 #include <cstdint>
 #include <cstdio>
 #include <string>
 #include <cmath>
 #include <algorithm>
-#include <SDL2/SDL_ttf.h>
 
 namespace lpa {
     class Font {

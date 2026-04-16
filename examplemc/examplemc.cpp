@@ -1,6 +1,11 @@
 #define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#ifdef _WIN32
+    #include <SDL.h>
+    #include <SDL_image.h>
+#else
+    #include <SDL2/SDL.h>
+    #include <SDL2/SDL_image.h>
+#endif
 #include <cstdint>
 #include <cstdlib>
 #include <vector>
@@ -812,8 +817,8 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Alpha v1.4.2";
-std::string VNAME = "Compatability Update";
+std::string VERSION = "Alpha v1.4.3";
+std::string VNAME = "Compatability Update 2";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
