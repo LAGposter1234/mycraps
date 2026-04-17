@@ -7,12 +7,7 @@
     <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8711b224-3ac0-4150-96ac-6b94de60c426" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examplemc/examplemc.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/examplemc/examplemc.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examplemc/lpaTPGEngine.hpp" beforeDir="false" afterPath="$PROJECT_DIR$/examplemc/lpaTPGEngine.hpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examplemc/testmc" beforeDir="false" afterPath="$PROJECT_DIR$/examplemc/testmc" afterDir="false" />
-    </list>
+    <list default="true" id="8711b224-3ac0-4150-96ac-6b94de60c426" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -91,7 +86,7 @@
       <workItem from="1776251246132" duration="13152000" />
       <workItem from="1776303546204" duration="37178000" />
       <workItem from="1776396904538" duration="8634000" />
-      <workItem from="1776409385365" duration="16575000" />
+      <workItem from="1776409385365" duration="17399000" />
     </task>
     <servers />
   </component>
