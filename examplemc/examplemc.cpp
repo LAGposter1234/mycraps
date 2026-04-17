@@ -173,28 +173,31 @@ namespace mycrap {
     int BLOCK_LEAVES = registerID(7, "leaves", lpa::Color(230, 94, 210), {0, true, 5});
     int BLOCK_ORE = registerID(8, "diamond", lpa::Color(52, 183, 235), {2});
     int BLOCK_PURE_ORE = registerID(9, "refined_diamond", lpa::Color(100, 204, 245), {3});
-    int BLOCK_SUPER_ORE = registerID(10, "super_diamond", lpa::Color(158, 222, 247), {4});
+    int BLOCK_FRIED_GRASS = registerID(10, "fried_grass", lpa::Color(22, 43, 1), {0, true, 20});
+    int BLOCK_GOLD = registerID(11, "gold_block", lpa::Color(255, 255, 0), {4});
+    // add gold
+
     int BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
     short ITEM_WOOD_PICK;
     short ITEM_STONE_PICK;
     short ITEM_ORE_PICK;
     short ITEM_PUREORE_PICK;
-    short ITEM_SUPERORE_PICK;
     short ITEM_FIST;
     short ITEM_PAPER;
+    short ITEM_MONEY;
+
     lpa::Image woodpickimg = makePick(lpa::Color(99, 89, 74));
     lpa::Image stonepickimg = makePick(lpa::Color(60, 60, 60));
     lpa::Image orepickimg = makePick(lpa::Color(52, 183, 235));
     lpa::Image pureorepickimg = makePick(lpa::Color(100, 204, 245));
-    lpa::Image superorepickimg = makePick(lpa::Color(158, 222, 247));
     void initItems(lpa::Window& win) {
         ITEM_WOOD_PICK = registerID(1001, "wooden_pickaxe", woodpickimg, {1});
         ITEM_STONE_PICK = registerID(1002, "stone_pickaxe", stonepickimg, {2});
         ITEM_ORE_PICK = registerID(1003, "diamond_pickaxe", orepickimg, {3});
         ITEM_PUREORE_PICK = registerID(1004, "refined_diamond_pickaxe", pureorepickimg, {4});
-        ITEM_SUPERORE_PICK = registerID(1005, "super_diamond_pickaxe", superorepickimg, {5});
-        ITEM_FIST = registerID(1006, "fist", woodpickimg, {0});
-        ITEM_PAPER = registerID(1007, "paper", lpa::color::WHITE);
+        ITEM_FIST = registerID(1005, "fist", woodpickimg, {0});
+        ITEM_PAPER = registerID(1006, "paper", lpa::color::WHITE);
+        ITEM_MONEY = registerID(1007, "money", lpa::color::bright::GREEN);
     }
 }
 
@@ -233,6 +236,12 @@ public:
         int idx = searchForBlockID(id);
         if (idx != -1) type = blocks[idx];
         else type = BlockID(); // fallback
+    }
+    ItemStack(short id, int count, std::vector<short> mtdt) : count(count) {
+        int idx = searchForBlockID(id);
+        if (idx != -1) type = blocks[idx];
+        else type = BlockID(); // fallback
+        type.metadata = mtdt;
     }
     short count;
 };
@@ -276,6 +285,16 @@ bool addItem(ItemStack items) {
     return false;
 }
 
+bool removeItem(ItemStack items) {
+    int idx = inventorySearchID(items.type.numid);
+    if (idx == -1) return false;
+    if (inventory[idx].count < items.count)
+        return false;
+
+    inventory[idx].decrement(items.count);
+    return true;
+}
+
 bool playerHas(const ItemStack& item) {
     if (item.count <= 0) return false;
     short itemid = inventorySearchID(item.type.numid);
@@ -307,10 +326,6 @@ void updateMiningItem(ItemStack& miningItem) {
     if (playerHas(ItemStack(mycrap::ITEM_PUREORE_PICK, 1))) {
         miningItem = ItemStack(mycrap::ITEM_PUREORE_PICK, 1);
         removeAllOf(mycrap::ITEM_PUREORE_PICK);
-    }
-    if (playerHas(ItemStack(mycrap::ITEM_SUPERORE_PICK, 1))) {
-        miningItem = ItemStack(mycrap::ITEM_SUPERORE_PICK, 1);
-        removeAllOf(mycrap::ITEM_SUPERORE_PICK);
     }
 }
 
@@ -376,13 +391,14 @@ namespace mycrap {
     short GRASS_REC;
     short OREPICK;
     short PUREOREPICK;
-    short SUPEROREPICK;
 
     short STONEPICK;
     short WOODPICK;
 
     short PAPER_REC;
     short PAPER_RECLOGS;
+
+    short MONEYREC;
 
     void initRecipes() {
         LEAVES_REC = registerRecipe({ ItemStack(mycrap::BLOCK_GRASS, 4) }, ItemStack(mycrap::BLOCK_LEAVES, 1), 1, "leaves");
@@ -391,13 +407,13 @@ namespace mycrap {
         GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 2) }, ItemStack(mycrap::BLOCK_GRASS, 1), 4, "grassfromdirt"); // how ba a a ad can i be? im just buildn the economy
         OREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_ORE_PICK, 1), 6, "diamondpick");
         PUREOREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_PURE_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_PUREORE_PICK, 1), 7, "purediamondpick");
-        SUPEROREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_SUPER_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_SUPERORE_PICK, 1), 8, "superdiamondpick");
 
         STONEPICK = registerRecipe({ ItemStack(mycrap::BLOCK_STONE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_STONE_PICK, 1), 9, "stonepick");
         WOODPICK = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_WOOD_PICK, 1), 10, "woodpick");
 
         PAPER_REC = registerRecipe({ ItemStack(mycrap::BLOCK_PLANKS, 3) }, ItemStack(mycrap::ITEM_PAPER, 9), 11, "paperfromplanks");
         PAPER_RECLOGS = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 3) }, ItemStack(mycrap::ITEM_PAPER, 72), 12, "paperfromlogs");
+        MONEYREC = registerRecipe({ ItemStack(mycrap::ITEM_PAPER, 1), ItemStack(mycrap::BLOCK_GRASS, 2) }, ItemStack(mycrap::ITEM_MONEY, 1), 13, "papermoney");
     }
 }
 
@@ -557,15 +573,17 @@ void generateWorld(int seed) {
 
                 else {
                     // deep underground
-                    float chance = (float)(rand() % 10000);
+                    float chance = (float)(rand() % 5000);
                     if (chance > 50) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
-                    } else if (chance > 35) {
+                    } else if (chance > 20) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_ORE;
-                    } else if (chance > 25) {
+                    } else if (chance > 15) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_PURE_ORE;
                     } else if (chance > 10) {
-                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_SUPER_ORE;
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_GOLD;
+                    } else {
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
                     }
                 }
 
@@ -589,6 +607,7 @@ void generateWorld(int seed) {
 
 
 float phealth = 100.0f;
+float phunger = 100.0f;
 
 void saveToFile(const char *path) {
     FILE *f = fopen(path, "wb");
@@ -599,11 +618,16 @@ void saveToFile(const char *path) {
     for (auto &i : inventory) {
         short id = i.type.numid;
         int count = i.count;
+        short* meta = i.type.metadata.data();
 
         fwrite(&id, sizeof(id), 1, f);
         fwrite(&count, sizeof(count), 1, f);
+        fwrite(&meta, sizeof(meta), 1, f);
+        char eos = '\0';
+        fwrite(&eos, sizeof(eos), 1, f);
     }
     fwrite(&phealth, sizeof(phealth), 1, f);
+    fwrite(&phunger, sizeof(phunger), 1, f);
     fclose(f);
 }
 void loadFromFile(const char *path) {
@@ -616,11 +640,19 @@ void loadFromFile(const char *path) {
     for (ssize_t i = 0; i < invSize; i++) {
         short id;
         int count;
+        std::vector<short> meta = {};
         fread(&id, sizeof(id), 1, f);
         fread(&count, sizeof(count), 1, f);
-        inventory[i] = ItemStack(id, count);
+        short metasingle = 0;
+        char eos = '\0';
+        for (int i = 0; metasingle != eos; i++) {
+            fread(&metasingle, sizeof(metasingle), 1, f);
+            meta.push_back(metasingle);
+        }
+        inventory[i] = ItemStack(id, count, meta);
     }
     fread(&phealth, sizeof(phealth), 1, f);
+    fread(&phunger, sizeof(phunger), 1, f);
     fclose(f);
     for (int wx = 0; wx < WORLD_X; wx++)
         for (int wz = 0; wz < WORLD_Z; wz++)
@@ -848,8 +880,10 @@ void renderInventory(lpa::Window& win, lpa::Font& font) {
                 win.drawRect(x-1, y-1, slotSize + 1,slotSize + 1, lpa::color::WHITE);
             }
             win.fillRect(x, y, slotSize, slotSize, c);
-            const char* text = std::to_string(inventory[i].count).c_str();
-            win.drawText(text, x, y, font, lpa::color::bright::GREY);
+            if (inventory[i].count > 0) {
+                const char* text = std::to_string(inventory[i].count).c_str();
+                win.drawText(text, x, y, font, lpa::color::bright::GREY);
+            }
         }
     int x = startX + (invSize + 1) * (slotSize + spacing);
     win.drawRect(x, y, slotSize, slotSize, lpa::color::bright::GREY);
@@ -867,8 +901,8 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Beta v1.0";
-std::string VNAME = "Caverns and Mountains update";
+std::string VERSION = "Beta v1.1";
+std::string VNAME = "The GAMBILING update";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
@@ -876,6 +910,8 @@ int w, h;
 bool consoleOpen = false;
 std::string consoleInput = "";
 std::vector<std::string> consoleLog;
+float goldDemand = 1.0f;
+float pricePerGold = 100.0f;
 
 void handleCommand(const std::string& input) {
     if (input.rfind("craft ", 0) == 0) {
@@ -889,12 +925,22 @@ void handleCommand(const std::string& input) {
     }
     if (input.rfind("give ", 0) == 0) {
         std::string args = input.substr(5);
+        while (!args.empty() && args[0] == ' ') args.erase(0, 1);
         ssize_t space = args.find(' ');
         if (space == std::string::npos) return;
+
         std::string itemName = args.substr(0, space);
-        int count = std::stoi(args.substr(space + 1));
+        std::string countStr = args.substr(space + 1);
+        if (countStr.empty()) return;
+        for (char c : countStr) {
+            if (!isdigit(c)) return;
+        }
+
+        int count = std::stoi(countStr);
+        if (count <= 0) return;
         short id = inventorySearchName(itemName);
-        if (id < 0) return; // item not found
+        if (id < 0) return;
+
         addItem(ItemStack(id, count));
         return;
     }
@@ -906,28 +952,95 @@ void handleCommand(const std::string& input) {
         saveToFile(fileName.c_str());
         return;
     }
-    if (input.rfind("help", 0) == 0) {
+    if (input.rfind("helpcraft", 0) == 0) {
         for (int i = 0; i < recipies.size(); i++) {
             consoleLog.push_back(recipeIDToString(recipies[i].id));
         }
         return;
     }
-    if (input.rfind("craftsingle ", 0) == 0) {
-        std::string recipeName = input.substr(6);
+    if (input.rfind("craft1 ", 0) == 0) {
+        std::string recipeName = input.substr(7);
+        if (recipeName.empty()) return;
+
         int id = recipeSearchName(recipeName);
-        if (id < 0) return; // recipe not found
-        int i = 0;
+        if (id < 0) return;
+
         recipies[id].craft(miningItem);
+
         consoleLog.push_back("Crafted " + recipeName + ".");
         return;
+    }
+    if (input.rfind("help-cmd", 0) == 0) {
+        consoleLog.push_back("craft - Craft things");
+        consoleLog.push_back("give - Give yourself items");
+        consoleLog.push_back("saveto - Save to file");
+        consoleLog.push_back("help-cmd - Display this list");
+        consoleLog.push_back("craft1 - Craft 1 thing");
+        consoleLog.push_back("mypos - Display position");
+        consoleLog.push_back("buygold - Buy gold");
+        consoleLog.push_back("sellgold - Sell gold");
+        consoleLog.push_back("goldinfo - Display gold info like prices");
+        return;
+    }
+    if (input.rfind("mypos", 0) == 0) {
+        consoleLog.push_back("X: " + std::to_string(px));
+        consoleLog.push_back("Y: " + std::to_string(py));
+        consoleLog.push_back("Z: " + std::to_string(pz));
+    }
+    if (input.rfind("buygold ", 0) == 0) {
+        std::string arg = input.substr(8);
+        if (arg.empty()) return;
+        for (char c : arg)
+            if (!isdigit(c)) return;
+
+        int count = std::stoi(arg);
+        if (count <= 0) return;
+        int cost = count * pricePerGold;
+
+        if (!playerHas(ItemStack(mycrap::ITEM_MONEY, cost))) return;
+        removeItem(ItemStack(mycrap::ITEM_MONEY, cost));
+        addItem(ItemStack(mycrap::BLOCK_GOLD, count));
+        goldDemand += 0.02f * count;
+
+        consoleLog.push_back("Bought " + std::to_string(count) + " gold.");
+        return;
+    }
+    if (input.rfind("sellgold ", 0) == 0) {
+        std::string arg = input.substr(9);
+        if (arg.empty()) return;
+
+        for (char c : arg)
+            if (!isdigit(c)) return;
+
+        int count = std::stoi(arg);
+        if (count <= 0) return;
+
+        if (!playerHas(ItemStack(mycrap::BLOCK_GOLD, count))) return;
+
+        int gain = count * pricePerGold;
+        removeItem(ItemStack(mycrap::BLOCK_GOLD, count));
+        addItem(ItemStack(mycrap::ITEM_MONEY, gain));
+        goldDemand -= 0.02f * count;
+
+        consoleLog.push_back("Sold " + std::to_string(count) + " gold.");
+        return;
+    }
+    if (input.rfind("goldinfo", 0) == 0) {
+        consoleLog.push_back("Price: " + std::to_string(pricePerGold));
+        consoleLog.push_back("Demand: " + std::to_string(goldDemand));
     }
 }
 
 void renderHealthBar(lpa::Window& win, lpa::Font& font) {
     win.fillRect(5, 541, 100, 15, lpa::color::bright::GREY);
     win.fillRect(5, 541, phealth, 15, lpa::color::RED);
-    std::string text = std::to_string(phealth) + "%";
+    std::string text = std::to_string(std::round(phealth)) + "%";
     win.drawText(text.c_str(), 5, 536, font, lpa::color::WHITE);
+
+    win.fillRect(115, 541, 100, 15, lpa::color::bright::GREY);
+    win.fillRect(115, 541, phunger, 15, lpa::color::ORANGE);
+    text = std::to_string(std::round(phunger)) + "%";
+    win.drawText(text.c_str(), 115, 536, font, lpa::color::WHITE);
 }
 
 float time_timer = 0.0f;
@@ -1219,28 +1332,36 @@ int main() {
                     if (item.type.metadata[1]) { // is edible
                         int heal = item.type.metadata[2];
 
-                        item.decrement(1);
-                        phealth += heal;
+                        if (phunger + heal <= 100) {
+                            item.decrement(1);
+                            phunger += heal;
+                        }
                     }
                 }
             }
+
+            phunger -= 0.05f * dt;
+            if (phunger < 0) {
+                phunger = 0;
+            }
+            if (phunger < 20) {
+                phealth -= 0.5f * dt;
+            }
+            if (phunger > 80) phealth += 0.5f * dt;
+            if (phealth > 100) phealth = 100;
+            if (phunger > 100) phunger = 100;
+
+            goldDemand -= ((rand() % 100) / 5000) * dt;
 
             win.drawLine(395, 300, 405, 300, lpa::color::WHITE);
             win.drawLine(400, 295, 400, 305, lpa::color::WHITE);
 
             std::string fpsStr = "FPS: " + std::to_string((int)(1.0f / dt));
-            std::string seedStr = "Seed: " + std::to_string(textseed);
             if (selected > 16) selected = 0;
             std::string blockstr = inventory[selected].type.name;
 
             win.drawText(fpsStr.c_str(), 10, 35,  font, lpa::color::BLACK);
-            win.drawText(("X: " + std::to_string(px)).c_str(), 10, 60, font, lpa::color::BLACK);
-            win.drawText(("Y: " + std::to_string(py)).c_str(), 10, 85, font, lpa::color::BLACK);
-            win.drawText(("Z: " + std::to_string(pz)).c_str(), 10, 110, font, lpa::color::BLACK);
-
-            win.drawText(("VY: " + std::to_string(velY)).c_str(), 10, 135, font, lpa::color::BLACK);
             if (blockstr != "empty_block") win.drawText(blockstr.c_str(), 5, 490, font, lpa::color::BLACK);
-            win.drawText(seedStr.c_str(), 10, 160, font, lpa::color::BLACK);
             std::string vstr = VERSION + " - " + VNAME;
             win.drawText(vstr.c_str(), 10, 10, font, lpa::color::BLACK);
 

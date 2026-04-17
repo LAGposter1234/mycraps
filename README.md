@@ -15,6 +15,17 @@ ___
 ___
 
 # BETA
+
+___
+
+## Beta 1.1 "The GAMBILING update"
+
+Added gold
+
+Added gold buying, selling, and demand.
+
+Added hunger
+
 ___
 
 ## Beta 1.0 "Caverns and Mountains update"
