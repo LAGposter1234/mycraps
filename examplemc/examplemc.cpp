@@ -21,7 +21,10 @@ int textseed = 0;
 std::vector<std::string> getSaveFiles() {
     std::vector<std::string> files;
     std::filesystem::path dirPath = "./worlds";
-    if (!std::filesystem::exists(dirPath)) return files;
+    if (!std::filesystem::exists(dirPath)) {
+        std::filesystem::create_directories(dirPath);
+        return files;
+    }
     for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
         if (!entry.is_regular_file()) continue;
         if (entry.path().extension() == ".sav") {
@@ -34,8 +37,8 @@ std::vector<std::string> getSaveFiles() {
 #define CX 8
 #define CZ 8
 #define CY 128
-#define WORLD_X 96
-#define WORLD_Z 96
+#define WORLD_X 64
+#define WORLD_Z 64
 
 #define RENDER_DIST 6  // in chunks
 
@@ -901,8 +904,8 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Beta v1.1";
-std::string VNAME = "The GAMBILING update";
+std::string VERSION = "Beta v1.2";
+std::string VNAME = "Performance Stuff";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
@@ -945,11 +948,12 @@ void handleCommand(const std::string& input) {
         return;
     }
     if (input.rfind("saveto ", 0) == 0) {
-        std::string args = input.substr(7);
-        ssize_t space = args.find(' ');
-        if (space == std::string::npos) return;
-        std::string fileName = "worlds/" + args.substr(0, space);
-        saveToFile(fileName.c_str());
+            std::string fileName = input.substr(7); // after "saveto "
+            if (fileName.empty()) return;
+            fileName = "worlds/" + fileName + ".sav";
+            saveToFile(fileName.c_str());
+            consoleLog.push_back("Saved to file " + fileName);
+            return;
         return;
     }
     if (input.rfind("helpcraft", 0) == 0) {
@@ -1245,6 +1249,18 @@ int main() {
                 time_timer += (dt / 100);
                 timeSin = sin(time_timer);
 
+                phunger -= 0.05f * dt;
+                if (phunger < 0) {
+                    phunger = 0;
+                }
+                if (phunger < 20) {
+                    phealth -= 0.5f * dt;
+                }
+                if (phunger > 80) phealth += 0.5f * dt;
+                if (phealth > 100) phealth = 100;
+                if (phunger > 100) phunger = 100;
+
+                goldDemand -= ((rand() % 100) / 5000) * dt;
 
                 cam.yaw   -= mdx * sensitivity;
                 cam.pitch += mdy * sensitivity;
@@ -1321,37 +1337,22 @@ int main() {
                 prevRight = rightDown;
             }
 
-            win.clearWithNoise(lpa::color::BLACK, 10, rand());
-            win.drawSkybox(lpa::color::CYAN, lpa::color::CYAN, cam);
+            win.clear(lpa::color::CYAN);
             renderWorld(win, cam, (int)px, (int)pz);
 
             if (win.keyPressed(SDLK_f)) {
                 auto& item = inventory[selected];
 
-                if (item.type.metadata.size() > 2) {
-                    if (item.type.metadata[1]) { // is edible
-                        int heal = item.type.metadata[2];
+                if (item.type.metadata.size() > 2 && item.type.metadata[1]) {
+                    int heal = item.type.metadata[2];
 
-                        if (phunger + heal <= 100) {
-                            item.decrement(1);
-                            phunger += heal;
-                        }
+                    if (phunger + heal <= 100) {
+                        item.decrement(1);
+                        phunger += heal;
                     }
                 }
             }
 
-            phunger -= 0.05f * dt;
-            if (phunger < 0) {
-                phunger = 0;
-            }
-            if (phunger < 20) {
-                phealth -= 0.5f * dt;
-            }
-            if (phunger > 80) phealth += 0.5f * dt;
-            if (phealth > 100) phealth = 100;
-            if (phunger > 100) phunger = 100;
-
-            goldDemand -= ((rand() % 100) / 5000) * dt;
 
             win.drawLine(395, 300, 405, 300, lpa::color::WHITE);
             win.drawLine(400, 295, 400, 305, lpa::color::WHITE);
@@ -1369,7 +1370,7 @@ int main() {
             renderHealthBar(win, sfont);
 
             if (paused) {
-                win.clearWithNoise(lpa::Color(50, 55, 65), 3, rand());
+                win.clear(lpa::Color(50, 55, 65));
 
                 int mx, my;
                 win.getMousePos(mx, my);
