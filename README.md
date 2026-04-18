@@ -21,12 +21,6 @@ ___
 
 Updated the compile command, added trees, some other stuff i cant really remember
 
-also the file worlds/myworld.sav is MY world and may change
-
-just like ignore it
-
-or visit it idrc
-
 ___
 
 ## Beta 1.2 "Performance stuff"
