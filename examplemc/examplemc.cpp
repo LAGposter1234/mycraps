@@ -36,11 +36,11 @@ std::vector<std::string> getSaveFiles() {
 
 #define CX 8
 #define CZ 8
-#define CY 128
-#define WORLD_X 64
-#define WORLD_Z 64
+#define CY 256
+#define WORLD_X 128
+#define WORLD_Z 128
 
-#define RENDER_DIST 6  // in chunks
+#define RENDER_DIST 12  // in chunks
 
 #define PLAYER_W 0.6f
 #define PLAYER_H 1.8f
@@ -49,7 +49,7 @@ float GRAVITY = -20.0f;
 #define JUMP_VEL -8.0f     // usually -8
 #define PLAYER_SPEED 6.0f // usually 6
 
-#define SEA_LEVEL 999 // useless
+#define SEA_LEVEL 999
 
 int BLOCK_COUNT = 0;
 
@@ -71,7 +71,7 @@ public:
     short numid; // Numerical ID, used internally
     std::string name; // String ID, used for commands and high level internals
     lpa::Color color; // Colour, used for rendering
-    lpa::Image img; // Used for rendering items
+    lpa::Image img; // Used for... not rendering items
 
     std::vector<short> metadata;
     BlockID() : numid(-32768), name("empty_block"), color(lpa::Color(0,0,0)), metadata({}), img(lpa::Image()) {}
@@ -133,7 +133,7 @@ SDL_Renderer* blockrenderer;
 lpa::Image makePick(lpa::Color col) {
     lpa::Image img(25, 25);
 
-    lpa::Color empty(0, 0, 0, 0);
+    lpa::Color empty(0, 0, 0, 255);
 
     for (int y = 0; y < 25; y++) {
         for (int x = 0; x < 25; x++) {
@@ -166,6 +166,7 @@ lpa::Image makePick(lpa::Color col) {
 }
 
 namespace mycrap {
+    short BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
     int BLOCK_AIR = registerID(0, "air", lpa::Color(0, 0, 0));
     int BLOCK_GRASS = registerID(1, "grass_block", lpa::Color(0, 125, 25), {0, true, 1});
     int BLOCK_DIRT = registerID(2, "dirt_block", lpa::Color(33, 18, 1), {0});
@@ -178,9 +179,12 @@ namespace mycrap {
     int BLOCK_PURE_ORE = registerID(9, "refined_diamond", lpa::Color(100, 204, 245), {3});
     int BLOCK_FRIED_GRASS = registerID(10, "fried_grass", lpa::Color(22, 43, 1), {0, true, 20});
     int BLOCK_GOLD = registerID(11, "gold_block", lpa::Color(255, 255, 0), {4});
-    // add gold
-
-    int BLOCK_EMPTY = registerID(-32768, "empty_block", lpa::Color(0,0,0));
+    int BLOCK_CHEST = registerID(12, "chest", lpa::Color(163, 131, 80), {0,
+        BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0,
+        BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0,
+        BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0, BLOCK_EMPTY, 0
+    });
+    int BLOCK_SNOW = registerID(13, "snow", lpa::Color(227, 227, 222), {0});
     short ITEM_WOOD_PICK;
     short ITEM_STONE_PICK;
     short ITEM_ORE_PICK;
@@ -205,6 +209,7 @@ namespace mycrap {
 }
 
 uint8_t selected = 0;
+uint8_t chestselected = 0;
 
 short chunk[WORLD_X][WORLD_Z][CX][CZ][CY] = {};
 lpa::Model3D chunkMesh[WORLD_X][WORLD_Z];
@@ -403,11 +408,13 @@ namespace mycrap {
 
     short MONEYREC;
 
+    short CHESTREC;
+
     void initRecipes() {
         LEAVES_REC = registerRecipe({ ItemStack(mycrap::BLOCK_GRASS, 4) }, ItemStack(mycrap::BLOCK_LEAVES, 1), 1, "leaves");
         LOGS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LEAVES, 4) }, ItemStack(mycrap::BLOCK_LOGS, 1), 2, "logs"); // dont ask, im not generating trees
         PLANKS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 1) }, ItemStack(mycrap::BLOCK_PLANKS, 8), 3, "planks");
-        GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 2) }, ItemStack(mycrap::BLOCK_GRASS, 1), 4, "grassfromdirt"); // how ba a a ad can i be? im just buildn the economy
+        GRASS_REC = registerRecipe({ ItemStack(mycrap::BLOCK_DIRT, 1) }, ItemStack(mycrap::BLOCK_GRASS, 4), 4, "grassfromdirt"); // how ba a a ad can i be? im just buildn the economy
         OREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_ORE_PICK, 1), 6, "diamondpick");
         PUREOREPICK = registerRecipe({ ItemStack(mycrap::BLOCK_PURE_ORE, 3), ItemStack(mycrap::BLOCK_PLANKS, 1) }, ItemStack(mycrap::ITEM_PUREORE_PICK, 1), 7, "purediamondpick");
 
@@ -417,6 +424,8 @@ namespace mycrap {
         PAPER_REC = registerRecipe({ ItemStack(mycrap::BLOCK_PLANKS, 3) }, ItemStack(mycrap::ITEM_PAPER, 9), 11, "paperfromplanks");
         PAPER_RECLOGS = registerRecipe({ ItemStack(mycrap::BLOCK_LOGS, 3) }, ItemStack(mycrap::ITEM_PAPER, 72), 12, "paperfromlogs");
         MONEYREC = registerRecipe({ ItemStack(mycrap::ITEM_PAPER, 1), ItemStack(mycrap::BLOCK_GRASS, 2) }, ItemStack(mycrap::ITEM_MONEY, 1), 13, "papermoney");
+
+        CHESTREC = registerRecipe({ ItemStack(mycrap::BLOCK_PLANKS, 10) }, ItemStack(mycrap::BLOCK_CHEST, 1), 14, "chest");
     }
 }
 
@@ -446,13 +455,45 @@ std::string recipeIDToString(short id) {
     return recipeToString(recipies[idx]);
 }
 
-// this gives us 16 inventory entries to choose from
 void getSelected(lpa::Window& win) {
     if (win.keyPressed(SDLK_e)) selected++;
     if (win.keyPressed(SDLK_q)) selected--;
 
     if (selected > 15) selected = 0;
     if (selected < 0) selected = 15;
+}
+
+void getChestSelected(lpa::Window& win) {
+    if (win.keyPressed(SDLK_RIGHT)) chestselected++;
+    if (win.keyPressed(SDLK_LEFT)) chestselected--;
+    if (win.keyPressed(SDLK_UP)) chestselected -= 16;
+    if (win.keyPressed(SDLK_DOWN)) chestselected += 16;
+
+    if (chestselected > 47) chestselected = 0;
+    if (chestselected < 0) chestselected = 47;
+}
+
+int getBlock(int wx, int wy, int wz) {
+    int cx = wx / CX, cz = wz / CZ;
+    int lx = wx % CX, lz = wz % CZ;
+    if (cx < 0 || cx >= WORLD_X || cz < 0 || cz >= WORLD_Z) return 0;
+    if (wy < 0 || wy >= CY) return 0;
+    return chunk[cx][cz][lx][lz][wy];
+}
+
+void setBlock(int wx, int wy, int wz, int val) {
+    int cx = wx / CX, cz = wz / CZ;
+
+    int lx = (wx % CX + CX) % CX;
+    int lz = (wz % CZ + CZ) % CZ;
+    if (cx < 0 || cx >= WORLD_X || cz < 0 || cz >= WORLD_Z) return;
+    if (wy < 0 || wy >= CY) return;
+    chunk[cx][cz][lx][lz][wy] = val;
+    chunkDirty[cx][cz] = true;
+    if (lx == 0    && cx > 0)          chunkDirty[cx-1][cz] = true;
+    if (lx == CX-1 && cx < WORLD_X-1) chunkDirty[cx+1][cz] = true;
+    if (lz == 0    && cz > 0)          chunkDirty[cx][cz-1] = true;
+    if (lz == CZ-1 && cz < WORLD_Z-1) chunkDirty[cx][cz+1] = true;
 }
 
 void generateWorld(int seed) {
@@ -530,13 +571,13 @@ void generateWorld(int seed) {
             float heightF = 0;
 
             if (biome == BIOME_MOUNTAINS)
-                heightF = base * 3.0f + mountain * 1.0f;
+                heightF = base * 1.0f + mountain * 1.0f;
             else if (biome == BIOME_DESERT)
-                heightF = base * 0.3f;
+                heightF = base * 0.1f;
             else if (biome == BIOME_OCEAN)
                 heightF = base * 0.05f / 5.0f;
             else
-                heightF = base * 0.6f;
+                heightF = base * 0.2f;
 
             int height = (int)((heightF * 0.5f + 0.5f) * (CY / 4)) + 28;
 
@@ -553,16 +594,20 @@ void generateWorld(int seed) {
                         chunk[wx][wz][x][z][y] = mycrap::BLOCK_SAND;
                     }
                     else if (biome == BIOME_MOUNTAINS) {
-                        if (height > SEA_LEVEL + 10)
-                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_STONE;
+                        if (height < 30)
+                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_SNOW;
                         else
                             chunk[wx][wz][x][z][y] = mycrap::BLOCK_GRASS;
                     }
                     else {
-                        if (height >= SEA_LEVEL - 1)
-                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_SAND;
-                        else
-                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_GRASS;
+                        chunk[wx][wz][x][z][y] = mycrap::BLOCK_GRASS;
+                        if ((rand() % 1000) <= 5) {
+                            chunk[wx][wz][x][z][y] = mycrap::BLOCK_LOGS;
+                            chunk[wx][wz][x][z][y-1] = mycrap::BLOCK_LOGS;
+                            chunk[wx][wz][x][z][y-2] = mycrap::BLOCK_LOGS;
+                            chunk[wx][wz][x][z][y-3] = mycrap::BLOCK_LOGS;
+                            chunk[wx][wz][x][z][y-4] = mycrap::BLOCK_LEAVES;
+                        }
                     }
                 }
 
@@ -595,7 +640,7 @@ void generateWorld(int seed) {
                     float n = caveNoise(worldX, (float)y, worldZ);
 
                     // tweak threshold for more/less caves
-                    if (n > 0.5f) {
+                    if (n > 0.75f) {
                         if (chunk[wx][wz][x][z][y] != mycrap::BLOCK_AIR) {
                             chunk[wx][wz][x][z][y] = mycrap::BLOCK_AIR;
                         }
@@ -662,27 +707,6 @@ void loadFromFile(const char *path) {
             chunkDirty[wx][wz] = true;
 }
 
-int getBlock(int wx, int wy, int wz) {
-    int cx = wx / CX, cz = wz / CZ;
-    int lx = wx % CX, lz = wz % CZ;
-    if (cx < 0 || cx >= WORLD_X || cz < 0 || cz >= WORLD_Z) return 0;
-    if (wy < 0 || wy >= CY) return 0;
-    return chunk[cx][cz][lx][lz][wy];
-}
-
-void setBlock(int wx, int wy, int wz, int val) {
-    int cx = wx / CX, cz = wz / CZ;
-    int lx = wx % CX, lz = wz % CZ;
-    if (cx < 0 || cx >= WORLD_X || cz < 0 || cz >= WORLD_Z) return;
-    if (wy < 0 || wy >= CY) return;
-    chunk[cx][cz][lx][lz][wy] = val;
-    chunkDirty[cx][cz] = true;
-    if (lx == 0    && cx > 0)          chunkDirty[cx-1][cz] = true;
-    if (lx == CX-1 && cx < WORLD_X-1) chunkDirty[cx+1][cz] = true;
-    if (lz == 0    && cz > 0)          chunkDirty[cx][cz-1] = true;
-    if (lz == CZ-1 && cz < WORLD_Z-1) chunkDirty[cx][cz+1] = true;
-}
-
 bool aabbSolid(float x, float y, float z) {
     float half = PLAYER_W / 2.0f;
 
@@ -712,14 +736,17 @@ bool aabbSolid(float x, float y, float z) {
 }
 
 void movePlayer(float dx, float dy, float dz) {
-
     // X
-    if (!aabbSolid(px + dx, py, pz))
+    if (!aabbSolid(px + dx, py, pz)) {
         px += dx;
+        if (px > WORLD_X * CX) px -= WORLD_X * CX;
+    }
 
     // Z
-    if (!aabbSolid(px, py, pz + dz))
+    if (!aabbSolid(px, py, pz + dz)) {
         pz += dz;
+        if (pz > WORLD_Z * CX) pz -= WORLD_Z * CX;
+    }
 
     // Y
     if (!aabbSolid(px, py + dy, pz)) {
@@ -798,20 +825,6 @@ void renderWorld(lpa::Window &win, lpa::Camera &cam, int ppx, int ppz) {
                 && wx >= cpos.x - 1 && wx <= cpos.x + 1
                 && wz >= cpos.y - 1 && wz <= cpos.y + 1)
                 rebuildChunk(wx, wz);
-
-            /*float t = timeSin; // -1 to 1
-
-            float angle = (t + 1.0f) * 3.14159f; // 0 → PI
-
-            float radius = 800.0f;
-
-            lpa::Vec3 lightPos(
-                384 + cos(angle) * radius,
-                300 + sin(angle) * radius,
-                384
-            );
-            lpa::Vec3 lights[] = {lightPos};*/
-            //win.drawPoint(lightPos.toVec2(cam, &false).x, lightPos.toVec2(cam, &false).y, lpa::color::YELLOW);
             chunkMesh[wx][wz].render(win, lpa::color::WHITE, cam);
         }
     }
@@ -904,11 +917,12 @@ void initWorld() {
     miningItem.count = 1;
 }
 
-std::string VERSION = "Beta v1.2";
-std::string VNAME = "Performance Stuff";
+std::string VERSION = "Beta v1.2.1";
+std::string VNAME = "General Update";
 std::string TITLE = "MyCraps";
 
 bool selectthing = false;
+bool chestselectthing = false;
 int w, h;
 bool consoleOpen = false;
 std::string consoleInput = "";
@@ -1048,6 +1062,27 @@ void renderHealthBar(lpa::Window& win, lpa::Font& font) {
 }
 
 float time_timer = 0.0f;
+
+void renderChestUI(lpa::Window& win, lpa::Font& font, ItemStack chest) {
+    const int slotSize = 25;
+    const int spacing = 5;
+    const int chestSize = chest.type.metadata.size() - 1;
+    int startX = 800 - ((spacing + slotSize) * (chestSize / 6));
+    int startY = 300 + ((slotSize + spacing) * 1.5);
+    int y = startY;
+    for (int i = 1; i < chestSize; i++) {
+        int x = startX + i * (slotSize + spacing);
+        lpa::Color c = blockColor(chest.type.metadata[i * 2]); // 1 = 2, 2 = 4, 3 = 6 where its id, count, id, count, etc
+        if (i == chestselected) {
+            win.drawRect(x-1, y-1, slotSize + 1,slotSize + 1, lpa::color::WHITE);
+        }
+        win.fillRect(x, y, slotSize, slotSize, c);
+        if (chest.type.metadata[(i*2)-1] > 0) {
+            const char* text = std::to_string(chest.type.metadata[(i*2)-1]).c_str();
+            win.drawText(text, x, y, font, lpa::color::bright::GREY);
+        }
+    }
+}
 
 int main() {
     std::srand(static_cast<unsigned int>(time(0)));
@@ -1284,6 +1319,13 @@ int main() {
                     selectthing = true;
                 }
 
+                if ((win.keyPressed(SDLK_LEFT) || win.keyPressed(SDLK_RIGHT)) && chestselectthing) {
+                    getChestSelected(win);
+                    chestselectthing = false;
+                } else if (!(win.keyPressed(SDLK_LEFT) || win.keyPressed(SDLK_RIGHT))) {
+                    chestselectthing = true;
+                }
+
                 float mlen = sqrt(mx*mx + mz*mz);
                 if (mlen > 0) { mx /= mlen; mz /= mlen; }
 
@@ -1292,9 +1334,11 @@ int main() {
                     velY = JUMP_VEL;
                     onGround = false;
                 }
-
-                movePlayer(mx * speed * dt, velY * dt, mz * speed * dt);
-
+                if (win.keyPressed(SDLK_LSHIFT)) {
+                    movePlayer(mx * (speed * 2) * dt, velY * dt, mz * (speed * 2) * dt);
+                } else {
+                    movePlayer(mx * speed * dt, velY * dt, mz * speed * dt);
+                }
                 if (py > 500) phealth -= 0.1f;
                 if (py > 1000) phealth -= 0.9f;
                 if (phealth < 0) {
@@ -1326,10 +1370,15 @@ int main() {
                         }
                     }
                     if (rightDown && !prevRight) {
-                        if (inventory[selected].type.numid != mycrap::BLOCK_EMPTY && inventory[selected].type.numid <= 1000) {
+                        if (inventory[selected].type.numid != mycrap::BLOCK_EMPTY && inventory[selected].type.numid != mycrap::BLOCK_CHEST && inventory[selected].type.numid <= 1000) {
                             setBlock(hitX + normX, hitY + normY, hitZ + normZ, inventory[selected].type.numid);
                             inventory[selected].decrement(1);
                         }
+                    }
+                }
+                if (win.keyPressed(SDLK_c)) {
+                    if (inventory[selected].type.numid == mycrap::BLOCK_CHEST) {
+                        renderChestUI(win, sfont, inventory[selected]);
                     }
                 }
 
@@ -1420,7 +1469,6 @@ int main() {
             win.present();
         }
     }
-
     IMG_Quit();
     return 0;
 }

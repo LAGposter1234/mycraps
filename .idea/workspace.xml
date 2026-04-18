@@ -7,7 +7,13 @@
     <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8711b224-3ac0-4150-96ac-6b94de60c426" name="Changes" comment="" />
+    <list default="true" id="8711b224-3ac0-4150-96ac-6b94de60c426" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/examplemc/PLANS.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/examplemc/worlds/myworld.sav" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examplemc/examplemc.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/examplemc/examplemc.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examplemc/testmc" beforeDir="false" afterPath="$PROJECT_DIR$/examplemc/testmc" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -64,6 +70,7 @@
     &quot;last_opened_file_path&quot;: &quot;/home/lagposter1234/CLionProjects/mycraps&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.IDE.editor.colors.com.intellij.clion.radler.core.settings.RadColorSettingsPage&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -86,11 +93,17 @@
       <workItem from="1776251246132" duration="13152000" />
       <workItem from="1776303546204" duration="37178000" />
       <workItem from="1776396904538" duration="8634000" />
-      <workItem from="1776409385365" duration="17399000" />
+      <workItem from="1776409385365" duration="17646000" />
+      <workItem from="1776479319636" duration="25346000" />
+      <workItem from="1776514271417" duration="640000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>

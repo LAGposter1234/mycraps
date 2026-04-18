@@ -1,0 +1,21 @@
+ok
+heres how im gonna store chest metadata
+
+0 - strength (normal)
+1-2 - an item (id, count)
+(1-2)-(95-96) items
+
+16x3 UI
+
+same deal as renderInventory but 3 times and stuff
+idrk how im gonna add like storage tho
+like def not click+drag
+maybe like click a slot in the chest and then click a slot in the inventory?
+nahhh
+OH I KNOW
+like another pointer thing
+inentory selected like goes down when you press q and goes up when you press e
+so i can make another set for chests!!
+im so smart
+
+AND arrow keys to move in the chest and enter to swap the items at each pointer!!!!

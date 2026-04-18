@@ -4,7 +4,7 @@ Minecraft clone. Uses lpaTPGEngine.
 ## Compiling
 compile with this command (in mycraps/examplemc)
 ```bash
-g++ examplemc.cpp -O3 -lSDL2 -lSDL2_image -lSDL2_ttf -o testmc
+g++ examplemc.cpp -std=c++26 -mcmodel=large -O3 -lSDL2 -lSDL2_image -lSDL2_ttf -o testmc
 ```
 
 The binary name can be anything
@@ -15,6 +15,18 @@ ___
 ___
 
 # BETA
+___
+
+## Beta 1.2.1 "General Update"
+
+Updated the compile command, added trees, some other stuff i cant really remember
+
+also the file worlds/myworld.sav is MY world and may change
+
+just like ignore it
+
+or visit it idrc
+
 ___
 
 ## Beta 1.2 "Performance stuff"
